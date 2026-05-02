@@ -76,6 +76,22 @@ export interface CategoryRecord {
   updatedAt?: string;
 }
 
+export interface IcsCandidate {
+  key: number;
+  title: string;
+  date: Date;
+  note: string;
+  url: string;
+  category: string;
+  isRecurring: boolean;
+  selected: boolean;
+}
+
+export interface IcsParseResult {
+  candidates: IcsCandidate[];
+  timedCount: number;
+}
+
 export interface SettingRecord {
   key: string;
   value: string;

@@ -1,4 +1,8 @@
+import type { FrontendMilestone } from '../data/types'
+
 export const ZOOM_LEVELS = ['decades', '30yr', 'years', 'months', 'weeks']
+export type ZoomLevel = typeof ZOOM_LEVELS[number] | 'custom'
+export type ViewMode = 'all' | 'past' | 'future'
 
 // Half-range in milliseconds for each named zoom level (total range = 2×)
 const HALF_RANGE_MS = {
@@ -13,14 +17,19 @@ const HALF_RANGE_MS = {
 const VIEW_ANCHOR = { all: 0.5, past: 0.88, future: 0.12 }
 
 // customHalfMs is only used when zoom === 'custom'
-export function getTimeRange(zoom, centerMs, customHalfMs = 0) {
+export function getTimeRange(zoom: ZoomLevel, centerMs: number, customHalfMs = 0): { startMs: number; endMs: number } {
   const half = zoom === 'custom' ? customHalfMs : HALF_RANGE_MS[zoom]
   return { startMs: centerMs - half, endMs: centerMs + half }
 }
 
 // Like getTimeRange but today (anchorMs) is placed at VIEW_ANCHOR[viewMode]
 // instead of always at the center. All three modes produce the same total span.
-export function getTimeRangeForView(zoom, anchorMs, viewMode = 'all', customHalfMs = 0) {
+export function getTimeRangeForView(
+  zoom: ZoomLevel,
+  anchorMs: number,
+  viewMode: ViewMode = 'all',
+  customHalfMs = 0,
+): { startMs: number; endMs: number } {
   const half     = zoom === 'custom' ? customHalfMs : HALF_RANGE_MS[zoom]
   const span     = half * 2
   const fraction = VIEW_ANCHOR[viewMode] ?? 0.5
@@ -28,23 +37,23 @@ export function getTimeRangeForView(zoom, anchorMs, viewMode = 'all', customHalf
   return { startMs, endMs: startMs + span }
 }
 
-export function dateToX(dateMs, startMs, endMs, width) {
+export function dateToX(dateMs: number, startMs: number, endMs: number, width: number): number {
   const span = endMs - startMs
   if (span === 0) return width / 2
   return ((dateMs - startMs) / span) * width
 }
 
-export function xToMs(x, startMs, endMs, width) {
+export function xToMs(x: number, startMs: number, endMs: number, width: number): number {
   return startMs + (x / width) * (endMs - startMs)
 }
 
-export function getMsPerPx(zoom, width, customHalfMs = 0) {
+export function getMsPerPx(zoom: ZoomLevel, width: number, customHalfMs = 0): number {
   const half = zoom === 'custom' ? customHalfMs : HALF_RANGE_MS[zoom]
   return (half * 2) / width
 }
 
 // Pick the best tick-mark visual style for a given span
-function autoStyle(startMs, endMs) {
+function autoStyle(startMs: number, endMs: number): Exclude<ZoomLevel, 'custom' | '30yr'> {
   const spanYears = (endMs - startMs) / (365.25 * 24 * 3600 * 1000)
   if (spanYears > 15)  return 'decades'
   if (spanYears > 2)   return 'years'
@@ -53,13 +62,19 @@ function autoStyle(startMs, endMs) {
 }
 
 // Generate tick marks for the current view
-export function getTickMarks(zoom, startMs, endMs, width) {
+export interface TickMark {
+  x: number;
+  label: string;
+  major: boolean;
+}
+
+export function getTickMarks(zoom: ZoomLevel, startMs: number, endMs: number, width: number): TickMark[] {
   // 'custom' auto-selects its visual style; '30yr' uses the same style as 'decades'
   const style = zoom === 'custom' ? autoStyle(startMs, endMs)
               : zoom === '30yr'   ? 'decades'
               : zoom
 
-  const ticks     = []
+  const ticks: TickMark[] = []
   const startDate = new Date(startMs)
   const endDate   = new Date(endMs)
 
@@ -110,7 +125,7 @@ export function getTickMarks(zoom, startMs, endMs, width) {
 }
 
 // Deterministic hash of an arbitrary string → 0..1 float
-function seededHash(str) {
+function seededHash(str: string): number {
   let h = 0
   for (const c of str) h = Math.imul(31, h) + c.charCodeAt(0) | 0
   return (h >>> 0) / 4294967295
@@ -123,12 +138,23 @@ function seededHash(str) {
 // Two independent hash values per milestone:
 //   laneRand – drives lane preference (~55% chance of preferring lane 1)
 //   connRand – drives connector-length jitter in the renderer (0 → 60% extra)
-export function assignLanes(milestones, maxLane = 0, cardTimeSpan = 0, forceAbove = false) {
+export interface AssignedMilestone extends FrontendMilestone {
+  above: boolean;
+  lane: number;
+  connRand: number;
+}
+
+export function assignLanes(
+  milestones: FrontendMilestone[],
+  maxLane = 0,
+  cardTimeSpan = 0,
+  forceAbove = false,
+): AssignedMilestone[] {
   const sorted = [...milestones].sort(
-    (a, b) => new Date(a.date) - new Date(b.date)
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   )
 
-  const placed = { above: [], below: [] }
+  const placed: { above: Array<{ ms: number; lane: number }>; below: Array<{ ms: number; lane: number }> } = { above: [], below: [] }
 
   return sorted.map((m, i) => {
     const above = forceAbove || i % 2 === 0
@@ -139,7 +165,7 @@ export function assignLanes(milestones, maxLane = 0, cardTimeSpan = 0, forceAbov
     const laneRand = seededHash(String(m.id) + String(m.date).slice(0, 10))
     const connRand = seededHash(String(m.id) + '~conn')
 
-    const hasConflict = (l) =>
+    const hasConflict = (l: number): boolean =>
       cardTimeSpan > 0 &&
       placed[side].some(p => p.lane === l && Math.abs(p.ms - mMs) < cardTimeSpan)
 

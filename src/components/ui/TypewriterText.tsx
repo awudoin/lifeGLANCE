@@ -1,6 +1,16 @@
 import React from 'react'
-import { useTypewriter } from '../../utils/typewriter'
+import { useTypewriter, type TypewriterOptions } from '../../utils/typewriter'
 import { playKeyClick } from '../../utils/audio'
+
+interface TypewriterTextProps {
+  text: string;
+  className?: string;
+  options?: TypewriterOptions;
+  showCursor?: boolean;
+  hideCursorWhenDone?: boolean;
+  onDone?: () => void;
+  playSound?: boolean;
+}
 
 /**
  * Renders text with a typewriter effect.
@@ -10,13 +20,13 @@ import { playKeyClick } from '../../utils/audio'
  */
 export default function TypewriterText({
   text,
-  className,
+  className = '',
   options      = {},
   showCursor   = true,
   hideCursorWhenDone = false,
   onDone,
   playSound = false,
-}) {
+}: TypewriterTextProps) {
   const { displayed, done } = useTypewriter(text, options)
   const prevLenRef = React.useRef(0)
 

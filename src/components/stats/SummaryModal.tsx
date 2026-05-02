@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react'
 import { formatDateDisplay } from '../../utils/dates'
+import type { FrontendMilestone } from '../../data/types'
 
-function formatSpan(ms) {
+function formatSpan(ms: number): string {
   const days   = ms / (24 * 3600 * 1000)
   const years  = Math.floor(days / 365.25)
   const months = Math.floor((days % 365.25) / 30.4)
@@ -11,7 +12,12 @@ function formatSpan(ms) {
   return `${Math.round(days)} day${Math.round(days) !== 1 ? 's' : ''}`
 }
 
-export default function SummaryModal({ milestones, onClose }) {
+interface SummaryModalProps {
+  milestones: FrontendMilestone[];
+  onClose: () => void;
+}
+
+export default function SummaryModal({ milestones, onClose }: SummaryModalProps) {
   const stats = useMemo(() => {
     if (!milestones.length) return null
 
@@ -19,7 +25,7 @@ export default function SummaryModal({ milestones, onClose }) {
     // Option B: deduplicate recurring series — keep only earliest instance per recurrence_id
     const seen = new Set()
     const deduped = [...milestones]
-      .sort((a, b) => new Date(a.date) - new Date(b.date))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .filter(m => {
         if (!m.recurrence_id) return true
         if (seen.has(m.recurrence_id)) return false
@@ -33,18 +39,18 @@ export default function SummaryModal({ milestones, onClose }) {
 
     // Span from earliest to latest (deduped)
     const spanMs = deduped.length > 1
-      ? new Date(deduped.at(-1).date) - new Date(deduped[0].date)
+      ? new Date(deduped[deduped.length - 1].date).getTime() - new Date(deduped[0].date).getTime()
       : 0
 
     // Longest gap between consecutive deduplicated milestones
     let longestGap = 0, gapA = null, gapB = null
     for (let i = 1; i < sorted.length; i++) {
-      const gap = new Date(sorted[i].date) - new Date(sorted[i - 1].date)
+      const gap = new Date(sorted[i].date).getTime() - new Date(sorted[i - 1].date).getTime()
       if (gap > longestGap) { longestGap = gap; gapA = sorted[i - 1]; gapB = sorted[i] }
     }
 
     // Busiest year (deduped)
-    const byYear = {}
+    const byYear: Record<number, number> = {}
     for (const m of deduped) {
       const y = new Date(m.date).getFullYear()
       byYear[y] = (byYear[y] || 0) + 1
@@ -52,12 +58,12 @@ export default function SummaryModal({ milestones, onClose }) {
     const busiestEntry = Object.entries(byYear).sort((a, b) => b[1] - a[1])[0]
 
     // Decade breakdown (deduped)
-    const byDecade = {}
+    const byDecade: Record<number, number> = {}
     for (const m of deduped) {
       const dec = Math.floor(new Date(m.date).getFullYear() / 10) * 10
       byDecade[dec] = (byDecade[dec] || 0) + 1
     }
-    const decades      = Object.entries(byDecade).sort((a, b) => Number(a[0]) - Number(b[0]))
+    const decades: Array<[string, number]> = Object.entries(byDecade).sort((a, b) => Number(a[0]) - Number(b[0])) as Array<[string, number]>
     const maxDecCount  = Math.max(...decades.map(d => d[1]), 1)
 
     return { total: deduped.length, past, future, spanMs, longestGap, gapA, gapB, busiestEntry, decades, maxDecCount }

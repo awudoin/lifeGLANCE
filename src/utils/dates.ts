@@ -5,10 +5,11 @@ import {
   format,
   isPast,
 } from 'date-fns'
+import type { DatePrecision } from '../data/types'
 
 // Returns the age (in whole years) at a given date, or null if birthday not set
 // or the target date precedes the birthday.
-export function ageAtDate(birthdayStr, targetDateStr) {
+export function ageAtDate(birthdayStr: string, targetDateStr: string): number | null {
   if (!birthdayStr || !targetDateStr) return null
   const born   = new Date(birthdayStr)
   const target = new Date(targetDateStr)
@@ -17,7 +18,7 @@ export function ageAtDate(birthdayStr, targetDateStr) {
   return differenceInYears(target, born)
 }
 
-export function relativeLabel(dateStr, precision = 'day') {
+export function relativeLabel(dateStr: string, precision: DatePrecision = 'day'): string {
   const date = new Date(dateStr)
   const now  = new Date()
   const past = isPast(date) && date < now
@@ -43,7 +44,7 @@ export function relativeLabel(dateStr, precision = 'day') {
   }
 }
 
-export function formatDateDisplay(dateStr, precision = 'day') {
+export function formatDateDisplay(dateStr: string, precision: DatePrecision = 'day'): string {
   const date = new Date(dateStr)
   if (precision === 'year')  return format(date, 'yyyy')
   if (precision === 'month') return format(date, 'MMMM yyyy')
@@ -51,7 +52,7 @@ export function formatDateDisplay(dateStr, precision = 'day') {
 }
 
 // Returns { years, months } elapsed/remaining for count-up animation
-export function getYearsMonths(dateStr) {
+export function getYearsMonths(dateStr: string): { years: number; months: number; days: number; past: boolean } {
   const date = new Date(dateStr)
   const now  = new Date()
   const past = date < now
@@ -65,7 +66,12 @@ export function getYearsMonths(dateStr) {
   }
 }
 
-export function buildDateFromParts(month, year, precision, day) {
+export function buildDateFromParts(
+  month: string | number,
+  year: string | number,
+  precision: DatePrecision,
+  day?: string | number,
+): Date {
   const y = Number(year)
   const m = Number(month) - 1
   if (precision === 'year')  return new Date(y, 0, 1)

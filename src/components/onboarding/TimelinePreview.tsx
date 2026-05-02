@@ -1,17 +1,25 @@
 import React from 'react'
 import { dateToX, getTimeRange } from '../../utils/timeline'
+import type { FrontendMilestone } from '../../data/types'
 
 const HEIGHT = 72
 const AXIS_Y = 36
 
-export default function TimelinePreview({ milestones = [] }) {
+interface TimelinePreviewProps {
+  milestones?: FrontendMilestone[];
+}
+
+export default function TimelinePreview({ milestones = [] }: TimelinePreviewProps) {
   const [width, setWidth] = React.useState(600)
-  const ref = React.useRef(null)
+  const ref = React.useRef<HTMLDivElement | null>(null)
 
   React.useEffect(() => {
     const el = ref.current
     if (!el) return
-    const obs = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width))
+    const obs = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (entry) setWidth(entry.contentRect.width)
+    })
     obs.observe(el)
     return () => obs.disconnect()
   }, [])

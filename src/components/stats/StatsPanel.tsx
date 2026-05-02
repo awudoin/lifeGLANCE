@@ -2,15 +2,21 @@ import React, { useRef, useState } from 'react'
 import { formatDateDisplay } from '../../utils/dates'
 import TypewriterText from '../ui/TypewriterText'
 import AnimatedRelLabel from '../ui/AnimatedRelLabel'
+import type { FrontendMilestone } from '../../data/types'
 
-function StatMilestone({ m, align }) {
+interface StatMilestoneProps {
+  m: FrontendMilestone;
+  align: 'left' | 'right';
+}
+
+function StatMilestone({ m, align }: StatMilestoneProps) {
   const dateStr = formatDateDisplay(m.date, m.date_precision)
   const k = m.id + (m.updated_at || '')
 
   // Only show the animated label after the date typewriter finishes.
   // Tracking the key (not a boolean) means it resets instantly when the
   // milestone changes — no stale flash between navigations.
-  const [readyForKey, setReadyForKey] = useState(null)
+  const [readyForKey, setReadyForKey] = useState<string | null>(null)
   const labelReady = readyForKey === k
 
   return (
@@ -32,7 +38,15 @@ function StatMilestone({ m, align }) {
 }
 
 // flip=true for past panel: ← goes to higher idx (older), → goes to lower idx (more recent)
-function NavRow({ idx, total, onChange, align, flip = false }) {
+interface NavRowProps {
+  idx: number;
+  total: number;
+  onChange: (index: number) => void;
+  align: 'left' | 'right';
+  flip?: boolean;
+}
+
+function NavRow({ idx, total, onChange, align, flip = false }: NavRowProps) {
   if (total <= 1) return null
   const prev = flip ? (idx + 1) % total        : (idx - 1 + total) % total
   const next = flip ? (idx - 1 + total) % total : (idx + 1) % total
@@ -45,9 +59,20 @@ function NavRow({ idx, total, onChange, align, flip = false }) {
   )
 }
 
-export default function StatsPanel({ past, future, pastIdx, futureIdx, onPastChange, onFutureChange, viewMode = 'all', compact = false }) {
-  const pastSwipeX   = useRef(null)
-  const futureSwipeX = useRef(null)
+interface StatsPanelProps {
+  past: FrontendMilestone[];
+  future: FrontendMilestone[];
+  pastIdx: number;
+  futureIdx: number;
+  onPastChange: (index: number) => void;
+  onFutureChange: (index: number) => void;
+  viewMode?: 'all' | 'past' | 'future';
+  compact?: boolean;
+}
+
+export default function StatsPanel({ past, future, pastIdx, futureIdx, onPastChange, onFutureChange, viewMode = 'all', compact = false }: StatsPanelProps) {
+  const pastSwipeX   = useRef<number | null>(null)
+  const futureSwipeX = useRef<number | null>(null)
   const [pastOpen,   setPastOpen]   = useState(false)
   const [futureOpen, setFutureOpen] = useState(false)
   const SWIPE = 40 // min px to register a swipe

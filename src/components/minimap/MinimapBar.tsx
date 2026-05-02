@@ -1,16 +1,31 @@
 import React, { useRef, useState, useEffect } from 'react'
 import { getTimeRangeForView } from '../../utils/timeline'
+import type { FrontendMilestone } from '../../data/types'
+import type { ViewMode, ZoomLevel } from '../../utils/timeline'
 
 const H = 40
 
-export default function MinimapBar({ milestones, panMs, onPanDirect, panToMs, zoom, customHalfMs, viewMode = 'all' }) {
-  const wrapRef = useRef(null)
+interface MinimapBarProps {
+  milestones: FrontendMilestone[];
+  panMs: number;
+  onPanDirect: (value: number) => void;
+  panToMs: (value: number) => void;
+  zoom: ZoomLevel;
+  customHalfMs: number;
+  viewMode?: ViewMode;
+}
+
+export default function MinimapBar({ milestones, panMs, onPanDirect, panToMs, zoom, customHalfMs, viewMode = 'all' }: MinimapBarProps) {
+  const wrapRef = useRef<HTMLDivElement | null>(null)
   const [w, setW] = useState(800)
 
   useEffect(() => {
     const el = wrapRef.current
     if (!el) return
-    const obs = new ResizeObserver(([e]) => setW(e.contentRect.width))
+    const obs = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (entry) setW(entry.contentRect.width)
+    })
     obs.observe(el)
     return () => obs.disconnect()
   }, [])
@@ -27,8 +42,8 @@ export default function MinimapBar({ milestones, panMs, onPanDirect, panToMs, zo
   const mapEnd   = Math.max(dataMax, todayMs) + pad
   const mapSpan  = mapEnd - mapStart
 
-  const msToX = (ms) => ((ms - mapStart) / mapSpan) * w
-  const xToMs = (x)  => mapStart + (x / w) * mapSpan
+  const msToX = (ms: number) => ((ms - mapStart) / mapSpan) * w
+  const xToMs = (x: number)  => mapStart + (x / w) * mapSpan
 
   // Current viewport rect
   const centerMs = todayMs + panMs
@@ -41,16 +56,16 @@ export default function MinimapBar({ milestones, panMs, onPanDirect, panToMs, zo
   // Drag / click
   const drag = useRef({ active: false, startX: 0, startPan: 0, moved: false })
 
-  function pointerDown(clientX) {
+  function pointerDown(clientX: number) {
     drag.current = { active: true, startX: clientX, startPan: panMs, moved: false }
   }
-  function pointerMove(clientX) {
+  function pointerMove(clientX: number) {
     const d = drag.current
     if (!d.active) return
     if (Math.abs(clientX - d.startX) > 3) d.moved = true
     if (d.moved) onPanDirect(d.startPan + ((clientX - d.startX) / w) * mapSpan)
   }
-  function pointerUp(clientX) {
+  function pointerUp(clientX: number) {
     const d = drag.current
     if (!d.active) return
     d.active = false

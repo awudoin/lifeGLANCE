@@ -2,10 +2,17 @@ import React, { useState, useEffect } from 'react'
 import TypewriterText from '../ui/TypewriterText'
 import { useCountUp } from '../../utils/typewriter'
 import { getYearsMonths } from '../../utils/dates'
+import type { FrontendMilestone } from '../../data/types'
 
 const PROMPT = "Here's your life, at a glance."
 
-export default function Step4Reveal({ onComplete, pastMilestone, futureMilestone }) {
+interface Step4RevealProps {
+  onComplete: () => void;
+  pastMilestone: FrontendMilestone | null;
+  futureMilestone: FrontendMilestone | null;
+}
+
+export default function Step4Reveal({ onComplete, pastMilestone, futureMilestone }: Step4RevealProps) {
   const [phase, setPhase] = useState('typing') // typing → row1 → row2 → cta
 
   // Derived time distances

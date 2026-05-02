@@ -5,13 +5,43 @@ import React, {
 import { dateToX, getTimeRangeForView, getTickMarks, assignLanes, getMsPerPx } from '../../utils/timeline'
 import { relativeLabel, formatDateDisplay, ageAtDate } from '../../utils/dates'
 import { dbGetMedia } from '../../data/db'
+import type { FrontendMilestone } from '../../data/types'
+import type { ViewMode, ZoomLevel } from '../../utils/timeline'
 
 // Map text-size labels → root px value (must match TimelineView TEXT_SIZES)
 const REM_PX = { small: 19, normal: 22, big: 26, bigger: 30 }
 
 // Word-wrap title to at most 2 lines given a max-chars-per-line limit.
 // Courier Prime is monospace so char-count is a reliable width proxy.
-function wrapTitle(text, maxChars) {
+export interface TimelineHandle {
+  resetPan: () => void;
+  panToMs: (targetMs: number) => void;
+}
+
+interface TimelineProps {
+  milestones: FrontendMilestone[];
+  zoom: ZoomLevel;
+  textSize?: 'small' | 'normal' | 'big' | 'bigger';
+  onMilestoneClick: (milestone: FrontendMilestone) => void;
+  customHalfMs?: number;
+  highlightedIds: Set<string>;
+  panMs: number;
+  onPanMs: (value: number) => void;
+  viewMode?: ViewMode;
+  onClusterClick?: (centerMs: number) => void;
+  clustering?: boolean;
+  birthday?: string;
+  newlyAddedId?: string | null;
+  ultraCompact?: boolean;
+}
+
+interface PhotoTip {
+  uri: string;
+  x: number;
+  y: number;
+}
+
+function wrapTitle(text: string, maxChars: number): string[] {
   if (text.length <= maxChars) return [text]
   const words = text.split(' ')
   let line1 = '', line2 = ''
@@ -34,7 +64,7 @@ function wrapTitle(text, maxChars) {
   return line2 ? [line1, line2] : [line1]
 }
 
-const Timeline = forwardRef(function Timeline(
+const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
   { milestones, zoom, textSize = 'normal', onMilestoneClick, customHalfMs = 0, highlightedIds, panMs, onPanMs, viewMode = 'all', onClusterClick, clustering = true, birthday = '', newlyAddedId = null, ultraCompact = false },
   ref
 ) {
@@ -53,25 +83,25 @@ const Timeline = forwardRef(function Timeline(
   const CARD_STEP   = CARD_H2 + Math.round(remPx * 0.55)
   const MAX_CONN    = Math.round(CONN_LEN * 1.6)
 
-  const wrapRef  = useRef(null)
+  const wrapRef  = useRef<HTMLDivElement | null>(null)
   const [size, setSize] = useState({ w: 800, h: 340 })
   const [compactLayout, setCompactLayout] = useState(
     () => window.matchMedia('(max-height: 900px)').matches
   )
-  const [photoTip,    setPhotoTip]    = useState(null) // { uri, x, y }
-  const [playingId,   setPlayingId]   = useState(null)
-  const audioElRef = useRef(null)
+  const [photoTip,    setPhotoTip]    = useState<PhotoTip | null>(null)
+  const [playingId,   setPlayingId]   = useState<string | null>(null)
+  const audioElRef = useRef<HTMLAudioElement | null>(null)
   // Track which IDs have already played their fly-in so we don't re-animate on re-renders
-  const [flyDoneIds,  setFlyDoneIds]  = useState(() => new Set())
+  const [flyDoneIds,  setFlyDoneIds]  = useState<Set<string>>(() => new Set())
   // panMsRef always tracks the latest value for animation calculations
   const panMsRef = useRef(panMs)
-  const animRef  = useRef(null)
+  const animRef  = useRef<number | null>(null)
   const drag     = useRef({ active: false, startX: 0, startPan: 0 })
 
   // Track viewport height for compact layout (axis shift + all-above)
   useEffect(() => {
     const mq = window.matchMedia('(max-height: 900px)')
-    const handler = (e) => setCompactLayout(e.matches)
+    const handler = (e: MediaQueryListEvent) => setCompactLayout(e.matches)
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
   }, [])
@@ -80,8 +110,8 @@ const Timeline = forwardRef(function Timeline(
   useEffect(() => { panMsRef.current = panMs }, [panMs])
 
   // Shared smooth-pan helper
-  const smoothPanTo = useCallback((targetPan) => {
-    if (animRef.current) cancelAnimationFrame(animRef.current)
+  const smoothPanTo = useCallback((targetPan: number) => {
+    if (animRef.current !== null) cancelAnimationFrame(animRef.current)
     const start = panMsRef.current
     const delta = targetPan - start
     if (Math.abs(delta) < 500) {
@@ -91,7 +121,7 @@ const Timeline = forwardRef(function Timeline(
     }
     const t0 = performance.now()
     const dur = 480
-    function tick(now) {
+    function tick(now: number) {
       const p = Math.min((now - t0) / dur, 1)
       const eased = 1 - Math.pow(1 - p, 3)
       const val = start + delta * eased
@@ -119,7 +149,7 @@ const Timeline = forwardRef(function Timeline(
     }
   }, [])
 
-  function handleAudioClick(m) {
+  function handleAudioClick(m: FrontendMilestone) {
     // Stop whatever is currently playing
     if (audioElRef.current) {
       audioElRef.current.pause()
@@ -175,8 +205,8 @@ const Timeline = forwardRef(function Timeline(
   const CLUSTER_THRESHOLD  = CARD_W * (compactLayout ? 0.6 : 0.4)
   const maxLane  = Math.max(0, Math.floor((axisY - MAX_CONN - CARD_H2 - TOP_RESERVE) / CARD_STEP))
 
-  const sorted = [...milestones].sort((a, b) => new Date(a.date) - new Date(b.date))
-  const groups = []
+  const sorted = [...milestones].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+  const groups: FrontendMilestone[][] = []
   let gi = 0
   while (gi < sorted.length) {
     const group  = [sorted[gi]]
@@ -227,7 +257,7 @@ const Timeline = forwardRef(function Timeline(
         startDrag(t.clientX)
       }}
       onTouchMove={e => {
-        const t = [...e.touches].find(x => x.identifier === touchId.current)
+      const t = Array.from(e.touches).find(x => x.identifier === touchId.current)
         if (t) moveDrag(t.clientX)
       }}
       onTouchEnd={endDrag}
@@ -595,7 +625,7 @@ const Timeline = forwardRef(function Timeline(
                 fontSize="0.58em" fontFamily="'Courier Prime', monospace" fontWeight="bold"
               >{count}</text>
               {/* Category colour dots above badge */}
-              {colors.map((color, ci) => {
+              {colors.map((color: string, ci) => {
                 const spread = (colors.length - 1) * 6
                 return (
                   <circle key={ci} cx={avgX + ci * 6 - spread / 2} cy={badgeCy - R - 6}

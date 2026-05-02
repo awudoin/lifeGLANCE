@@ -4,10 +4,16 @@
  * All play functions are no-ops when muted or before init().
  */
 
-let ctx           = null
-let ambientNodes  = []
+interface AmbientNode {
+  osc: OscillatorNode;
+  gainNd: GainNode;
+  lfo: OscillatorNode;
+}
+
+let ctx: AudioContext | null = null
+let ambientNodes: AmbientNode[] = []
 let ambientActive = false
-let melodyTimer   = null
+let melodyTimer: number | null = null
 let _muted        = localStorage.getItem('lifeglance-sound') === 'off'
 
 // ── Context ───────────────────────────────────────────────────────────────────
@@ -16,14 +22,16 @@ let _muted        = localStorage.getItem('lifeglance-sound') === 'off'
 export function init() {
   if (!ctx) {
     try {
-      ctx = new (window.AudioContext || window.webkitAudioContext)()
+      const AudioContextCtor = window.AudioContext ?? window.webkitAudioContext
+      if (!AudioContextCtor) return
+      ctx = new AudioContextCtor()
     } catch { /* browser doesn't support Web Audio */ }
   } else if (ctx.state === 'suspended') {
     ctx.resume().catch(() => {})
   }
 }
 
-function getCtx() {
+function getCtx(): AudioContext | null {
   if (!ctx || ctx.state === 'closed') return null
   if (ctx.state === 'suspended') ctx.resume().catch(() => {})
   return ctx
@@ -32,7 +40,7 @@ function getCtx() {
 // ── Mute ─────────────────────────────────────────────────────────────────────
 
 export function isMuted()     { return _muted }
-export function setMuted(val) {
+export function setMuted(val: boolean): void {
   _muted = !!val
   localStorage.setItem('lifeglance-sound', _muted ? 'off' : 'on')
   if (_muted) _fadeOutAmbient()
@@ -41,7 +49,7 @@ export function toggleMuted() { setMuted(!_muted); return _muted }
 
 // ── Primitive: single sine tone with envelope ─────────────────────────────────
 
-function tone(freq, duration, peak = 0.09, type = 'sine', delaySec = 0) {
+function tone(freq: number, duration: number, peak = 0.09, type: OscillatorType = 'sine', delaySec = 0): void {
   if (_muted) return
   const c = getCtx()
   if (!c) return
@@ -87,12 +95,12 @@ export function playKeyClick() {
 // ── Piano note (used by melody + chime) ──────────────────────────────────────
 // Fundamental sine + 2nd harmonic at 28 % for body. Fast attack, long decay.
 
-function playPianoNote(freq, vel = 0.07, decaySec = 1.8) {
+function playPianoNote(freq: number, vel = 0.07, decaySec = 1.8): void {
   if (_muted) return
   const c = getCtx()
   if (!c) return
   const t0 = c.currentTime
-  ;[[1, vel], [2, vel * 0.28]].forEach(([mult, peak]) => {
+  ;([[1, vel], [2, vel * 0.28]] as Array<[number, number]>).forEach(([mult, peak]) => {
     const osc  = c.createOscillator()
     const gain = c.createGain()
     osc.connect(gain)

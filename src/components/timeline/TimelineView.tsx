@@ -17,6 +17,9 @@ import { addMilestone, updateMilestone, deleteMilestone, restoreMilestones, uid 
 import { dbPutMedia } from '../../data/db'
 import { parseIcs }      from '../../utils/icsParser'
 import * as audio from '../../utils/audio'
+import type { CategoryRecord, FrontendMilestone, IcsParseResult } from '../../data/types'
+import type { TimelineHandle } from './Timeline'
+import type { ViewMode, ZoomLevel } from '../../utils/timeline'
 
 const ZOOM_RANK = { decades: 5, '30yr': 4, years: 3, months: 2, weeks: 1, custom: 3.5 }
 
@@ -28,8 +31,14 @@ const TEXT_SIZES = {
 }
 
 const ZOOM_ANIM_MS = 380
+type TextSize = keyof typeof TEXT_SIZES
 
-function applyRecurFilter(ms, mode) {
+interface TimelineViewProps {
+  milestones: FrontendMilestone[];
+  setMilestones: React.Dispatch<React.SetStateAction<FrontendMilestone[]>>;
+}
+
+function applyRecurFilter(ms: FrontendMilestone[], mode: 'next' | ViewMode): FrontendMilestone[] {
   if (mode === 'all') return ms
   const now    = new Date()
   const nonRec = ms.filter(m => !m.recurrence_id)
@@ -37,25 +46,25 @@ function applyRecurFilter(ms, mode) {
   if (mode === 'past')   return [...nonRec, ...rec.filter(m => new Date(m.date) <  now)]
   if (mode === 'future') return [...nonRec, ...rec.filter(m => new Date(m.date) >= now)]
   // 'next': one instance per series — nearest upcoming, or most recent past if none upcoming
-  const byId = {}
+  const byId: Record<string, FrontendMilestone[]> = {}
   for (const m of rec) { (byId[m.recurrence_id] ??= []).push(m) }
-  const picked = Object.values(byId).map(arr => {
-    const up = arr.filter(m => new Date(m.date) >= now).sort((a, b) => new Date(a.date) - new Date(b.date))
-    return up.length ? up[0] : arr.sort((a, b) => new Date(b.date) - new Date(a.date))[0]
+  const picked = Object.values(byId).map((arr) => {
+    const up = arr.filter(m => new Date(m.date) >= now).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    return up.length ? up[0] : arr.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
   })
-  return [...nonRec, ...picked]
+  return [...nonRec, ...picked.filter(Boolean)]
 }
 
-export default function TimelineView({ milestones, setMilestones }) {
-  const [zoom,          setZoom]          = useState('years')
+export default function TimelineView({ milestones, setMilestones }: TimelineViewProps) {
+  const [zoom,          setZoom]          = useState<ZoomLevel>('years')
   const [zoomAnim,      setZoomAnim]      = useState('')
   const [filter,        setFilter]        = useState('all')
   const [addOpen,       setAddOpen]       = useState(false)
   const [editTarget,    setEditTarget]    = useState(null)
   const [detail,        setDetail]        = useState(null)
-  const [textSize,      setTextSize]      = useState(() => {
+  const [textSize,      setTextSize]      = useState<TextSize>(() => {
     const stored = localStorage.getItem('lifeglance-text-size')
-    if (stored) return stored
+    if (stored === 'small' || stored === 'normal' || stored === 'big' || stored === 'bigger') return stored
     // First-visit default: estimate available SVG height (total minus fixed chrome)
     const hEst = window.innerHeight - 141
     if (hEst < 240) return 'small'
@@ -70,9 +79,9 @@ export default function TimelineView({ milestones, setMilestones }) {
   const [settingsOpen,  setSettingsOpen]  = useState(false)
   const [helpOpen,      setHelpOpen]      = useState(false)
   const [searchOpen,    setSearchOpen]    = useState(false)
-  const [viewMode,      setViewMode]      = useState('all')
-  const [recurFilter,   setRecurFilter]   = useState('next')
-  const [categories,    setCategories]    = useState(loadCategories)
+  const [viewMode,      setViewMode]      = useState<ViewMode>('all')
+  const [recurFilter,   setRecurFilter]   = useState<'next' | ViewMode>('next')
+  const [categories,    setCategories]    = useState<CategoryRecord[]>(loadCategories)
   const [panMs,         setPanMs]         = useState(0)
   const [compactHeader, setCompactHeader] = useState(
     () => window.matchMedia('(max-width: 1080px)').matches
@@ -99,14 +108,14 @@ export default function TimelineView({ milestones, setMilestones }) {
   const [newlyAddedId,  setNewlyAddedId]  = useState(null)
   const [summaryOpen,   setSummaryOpen]   = useState(false)
   const [onThisDayOpen, setOnThisDayOpen] = useState(false)
-  const [icsImport,     setIcsImport]     = useState(null)  // { candidates, timedCount } | null
+  const [icsImport,     setIcsImport]     = useState<IcsParseResult | null>(null)
   const [toast,         setToast]         = useState(null)  // { message, type } | null
   const [mediaConfirm,  setMediaConfirm]  = useState(null)  // { data, existing, fileSize, remaining } | null
 
-  const timelineRef    = useRef(null)
-  const zoomWrapRef    = useRef(null)
-  const bodyRef        = useRef(null)
-  const zoomRef        = useRef('years')
+  const timelineRef    = useRef<TimelineHandle | null>(null)
+  const zoomWrapRef    = useRef<HTMLDivElement | null>(null)
+  const bodyRef        = useRef<HTMLDivElement | null>(null)
+  const zoomRef        = useRef<ZoomLevel>('years')
   const zoomLocked     = useRef(false)
   const customInputRef = useRef(null)
   const historyRef     = useRef(null)   // { stack: Milestone[][], idx: number }
@@ -120,7 +129,7 @@ export default function TimelineView({ milestones, setMilestones }) {
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 1080px)')
-    const handler = (e) => setCompactHeader(e.matches)
+    const handler = (e: MediaQueryListEvent) => setCompactHeader(e.matches)
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
   }, [])
@@ -134,7 +143,7 @@ export default function TimelineView({ milestones, setMilestones }) {
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 1200px)')
-    const handler = (e) => setCompactFilter(e.matches)
+    const handler = (e: MediaQueryListEvent) => setCompactFilter(e.matches)
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
   }, [])
@@ -148,14 +157,14 @@ export default function TimelineView({ milestones, setMilestones }) {
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 768px), (max-height: 600px)')
-    const handler = (e) => setCompactStats(e.matches)
+    const handler = (e: MediaQueryListEvent) => setCompactStats(e.matches)
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
   }, [])
 
   useEffect(() => {
     const mq = window.matchMedia('(max-height: 500px)')
-    const handler = (e) => setUltraCompact(e.matches)
+    const handler = (e: MediaQueryListEvent) => setUltraCompact(e.matches)
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
   }, [])
@@ -207,7 +216,7 @@ export default function TimelineView({ milestones, setMilestones }) {
   const filteredMilestones = applyRecurFilter(categoryFiltered, recurFilter)
 
   function cycleRecurFilter() {
-    setRecurFilter(f => ({ next: 'all', all: 'past', past: 'future', future: 'next' }[f]))
+    setRecurFilter((f) => ({ next: 'all', all: 'past', past: 'future', future: 'next' }[f] as 'next' | ViewMode))
   }
 
   // ── "On this day" — milestones that share today's month (and day if precision allows) ──
@@ -222,17 +231,17 @@ export default function TimelineView({ milestones, setMilestones }) {
       const sameMonth = d.getMonth() + 1 === todayMonth
       if (m.date_precision === 'month') return sameMonth
       return sameMonth && d.getDate() === todayDay
-    }).sort((a, b) => new Date(b.date) - new Date(a.date))
+    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
   }, [milestones])
 
   // ── Past / future for stat panel ─────────────────────────────────────────────
   const now    = new Date()
   const past   = [...filteredMilestones]
     .filter(m => new Date(m.date) < now)
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
   const future = [...filteredMilestones]
     .filter(m => new Date(m.date) >= now)
-    .sort((a, b) => new Date(a.date) - new Date(b.date))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
   // Clamp indices when lists shrink
   useEffect(() => {
@@ -242,9 +251,9 @@ export default function TimelineView({ milestones, setMilestones }) {
     setFutureIdx(i => Math.min(i, Math.max(0, future.length - 1)))
   }, [future.length])
 
-  const highlightedIds = highlightsActive
-    ? new Set([past[pastIdx]?.id, future[futureIdx]?.id].filter(Boolean))
-    : new Set()
+  const highlightedIds: Set<string> = highlightsActive
+    ? new Set([past[pastIdx]?.id, future[futureIdx]?.id].filter((value): value is string => Boolean(value)))
+    : new Set<string>()
 
   // ── Stat panel navigation (shared by buttons, keyboard, and swipe) ───────────
   function handlePastNav(i) {
@@ -689,10 +698,10 @@ export default function TimelineView({ milestones, setMilestones }) {
 
       // Clone SVG, fix rem font-size (canvas defaults 1rem→16px, not the app's value),
       // expand height + viewBox to capture above-axis glow, and inject a dark bg rect.
-      const clone = svgEl.cloneNode(true)
+      const clone = svgEl.cloneNode(true) as SVGSVGElement
       clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
-      clone.setAttribute('width', w)
-      clone.setAttribute('height', h + topInset)
+      clone.setAttribute('width', String(w))
+      clone.setAttribute('height', String(h + topInset))
       clone.setAttribute('viewBox', `0 ${-topInset} ${w} ${h + topInset}`)
       clone.style.fontSize = getComputedStyle(svgEl).fontSize // e.g. "22px"
 
@@ -708,7 +717,7 @@ export default function TimelineView({ milestones, setMilestones }) {
       // encode as base64, and inject a <style> block so the sandboxed SVG img
       // renders the correct font.
       try {
-        const fontLink = document.querySelector('link[href*="googleapis.com"][href*="Courier"]')
+        const fontLink = document.querySelector('link[href*="googleapis.com"][href*="Courier"]') as HTMLLinkElement | null
         if (fontLink) {
           const css = await (await fetch(fontLink.href)).text()
           const blocks = css.match(/@font-face\s*\{[^}]+\}/g) ?? []
@@ -740,7 +749,7 @@ export default function TimelineView({ milestones, setMilestones }) {
       const ctx = canvas.getContext('2d')
       ctx.scale(scale, scale)
 
-      await new Promise((resolve, reject) => {
+      await new Promise<void>((resolve, reject) => {
         const img = new Image()
         img.onload = () => { ctx.drawImage(img, 0, 0); URL.revokeObjectURL(svgUrl); resolve() }
         img.onerror = reject

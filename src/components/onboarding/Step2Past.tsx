@@ -1,33 +1,38 @@
 import React, { useState } from 'react'
 import TypewriterText from '../ui/TypewriterText'
 import { buildDateFromParts } from '../../utils/dates'
+import type { FrontendMilestoneInput } from '../../data/types'
 
-const PROMPT = "What's the one thing you're most looking forward to in the future?"
+const PROMPT = "What's one of the happiest events you've experienced in your life so far?"
 
 const MONTHS = [
   'January','February','March','April','May','June',
   'July','August','September','October','November','December',
 ]
 
-export default function Step3Future({ onSubmit, onSkip, pastMilestone }) {
+interface Step2PastProps {
+  onSubmit: (input: FrontendMilestoneInput) => Promise<void>;
+  onSkip: () => void;
+}
+
+export default function Step2Past({ onSubmit, onSkip }: Step2PastProps) {
   const [promptDone, setPromptDone] = useState(false)
-  const [title, setTitle] = useState('')
-  const [month, setMonth] = useState('1')
-  const [year,  setYear]  = useState('')
-  const [busy,  setBusy]  = useState(false)
-  const [error, setError] = useState('')
+  const [title, setTitle]   = useState('')
+  const [month, setMonth]   = useState('1')
+  const [year,  setYear]    = useState('')
+  const [busy,  setBusy]    = useState(false)
+  const [error, setError]   = useState('')
 
-  const thisYear = new Date().getFullYear()
-  const canSubmit = title.trim() && year.length >= 4 && Number(year) >= thisYear
+  const canSubmit = title.trim() && year.length === 4 && Number(year) > 1900 && Number(year) <= new Date().getFullYear()
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!canSubmit || busy) return
     setError('')
 
     const date = buildDateFromParts(month, year, 'month')
-    if (date <= new Date()) {
-      setError('This should be a future event.')
+    if (date >= new Date()) {
+      setError('This should be a past event.')
       return
     }
 
@@ -44,12 +49,12 @@ export default function Step3Future({ onSubmit, onSkip, pastMilestone }) {
       <div>
         <div className="progress-dots">
           <div className="progress-dot done" />
-          <div className="progress-dot done" />
           <div className="progress-dot active" />
+          <div className="progress-dot" />
           <div className="progress-dot" />
         </div>
         <div className="onboarding-eyebrow" style={{ marginTop: '0.5rem' }}>
-          step 3 of 4 — your future
+          step 2 of 4 — your past
         </div>
       </div>
 
@@ -78,7 +83,7 @@ export default function Step3Future({ onSubmit, onSkip, pastMilestone }) {
           <input
             className="input"
             type="text"
-            placeholder="e.g. Trip to Japan"
+            placeholder="e.g. We got married"
             value={title}
             onChange={e => setTitle(e.target.value)}
             autoComplete="off"
@@ -105,10 +110,11 @@ export default function Step3Future({ onSubmit, onSkip, pastMilestone }) {
             <input
               className="input"
               type="number"
-              placeholder={thisYear + 1}
+              placeholder="2015"
               value={year}
               onChange={e => setYear(e.target.value)}
-              min={thisYear}
+              min="1900"
+              max={new Date().getFullYear()}
             />
           </div>
         </div>

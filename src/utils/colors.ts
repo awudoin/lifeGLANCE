@@ -1,4 +1,6 @@
-export const DEFAULT_CATEGORIES = [
+import type { CategoryRecord } from '../data/types'
+
+export const DEFAULT_CATEGORIES: CategoryRecord[] = [
   { id: 'personal',  label: 'personal',  color: '#9370DB' },
   { id: 'family',    label: 'family',    color: '#9370DB' },
   { id: 'travel',    label: 'travel',    color: '#C8A96E' },
@@ -15,20 +17,20 @@ export const CATEGORY_COLOR = Object.fromEntries(
   CATEGORIES.map(c => [c.id, c.color])
 )
 
-export function categoryColor(category) {
+export function categoryColor(category: string): string {
   return CATEGORY_COLOR[category] ?? '#C8A96E'
 }
 
 const CAT_KEY = 'lifeglance-categories'
 
-export function loadCategories() {
+export function loadCategories(): CategoryRecord[] {
   try {
     const raw = localStorage.getItem(CAT_KEY)
-    if (raw) return JSON.parse(raw)
+    if (raw) return JSON.parse(raw) as CategoryRecord[]
   } catch {}
   return DEFAULT_CATEGORIES
 }
 
-export function saveCategories(cats) {
+export function saveCategories(cats: CategoryRecord[]): void {
   localStorage.setItem(CAT_KEY, JSON.stringify(cats))
 }

@@ -6,11 +6,16 @@ import Step4Reveal    from './Step4Reveal'
 import TimelinePreview from './TimelinePreview'
 import { addMilestone } from '../../data/milestones'
 import { init as audioInit, startAmbient, stopAmbient } from '../../utils/audio'
+import type { FrontendMilestone, FrontendMilestoneInput } from '../../data/types'
 
-export default function Onboarding({ onComplete }) {
+interface OnboardingProps {
+  onComplete: (initial: FrontendMilestone[]) => void;
+}
+
+export default function Onboarding({ onComplete }: OnboardingProps) {
   const [step, setStep]               = useState(1)
-  const [pastMilestone, setPast]      = useState(null)
-  const [futureMilestone, setFuture]  = useState(null)
+  const [pastMilestone, setPast]      = useState<FrontendMilestone | null>(null)
+  const [futureMilestone, setFuture]  = useState<FrontendMilestone | null>(null)
 
   function handleBegin() {
     audioInit()       // unlock AudioContext on this user gesture
@@ -18,13 +23,13 @@ export default function Onboarding({ onComplete }) {
     setStep(2)
   }
 
-  async function handlePast(data) {
+  async function handlePast(data: FrontendMilestoneInput) {
     const m = await addMilestone(data)
     setPast(m)
     setStep(3)
   }
 
-  async function handleFuture(data) {
+  async function handleFuture(data: FrontendMilestoneInput) {
     const m = await addMilestone(data)
     setFuture(m)
     setStep(4)
