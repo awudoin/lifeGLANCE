@@ -3,17 +3,18 @@ import Onboarding   from './components/onboarding/Onboarding'
 import TimelineView from './components/timeline/TimelineView'
 import { initDB } from './data/db'
 import { loadMilestones } from './data/milestones'
+import type { FrontendMilestone } from './data/types'
 
 export default function App() {
   const [screen,      setScreen]      = useState('loading')  // loading | onboarding | timeline
-  const [milestones,  setMilestones]  = useState([])
+  const [milestones,  setMilestones]  = useState<FrontendMilestone[]>([])
   const [portraitWarn, setPortraitWarn] = useState(
     () => window.matchMedia('(orientation: portrait) and (max-width: 1024px)').matches
   )
 
   useEffect(() => {
     const mq = window.matchMedia('(orientation: portrait) and (max-width: 1024px)')
-    const handler = (e) => setPortraitWarn(e.matches)
+    const handler = (e: MediaQueryListEvent) => setPortraitWarn(e.matches)
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
   }, [])
@@ -31,7 +32,7 @@ export default function App() {
       })
   }, [])
 
-  function handleOnboardingComplete(initial) {
+  function handleOnboardingComplete(initial: FrontendMilestone[]) {
     setMilestones(initial)
     setScreen('timeline')
   }
