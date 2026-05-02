@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import Onboarding   from './components/onboarding/Onboarding'
 import TimelineView from './components/timeline/TimelineView'
-import { initDB, dbGetAll } from './data/db'
+import { initDB } from './data/db'
+import { loadMilestones } from './data/milestones'
 
 export default function App() {
   const [screen,      setScreen]      = useState('loading')  // loading | onboarding | timeline
@@ -19,13 +20,13 @@ export default function App() {
 
   useEffect(() => {
     initDB()
-      .then(() => { navigator.storage?.persist?.(); return dbGetAll() })
+      .then(() => { navigator.storage?.persist?.(); return loadMilestones() })
       .then((all) => {
         setMilestones(all)
         setScreen(all.length === 0 ? 'onboarding' : 'timeline')
       })
       .catch((err) => {
-        console.error('DB init failed:', err)
+        console.error('App bootstrap failed:', err)
         setScreen('onboarding')
       })
   }, [])
