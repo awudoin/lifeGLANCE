@@ -20,6 +20,7 @@
 - recurrenceId
 - createdAt
 - updatedAt
+- indexes on `date`, `categoryId`, and `recurrenceId`
 
 **Table: categories**
 - id
@@ -43,3 +44,11 @@
 - storagePath
 - sha256
 - createdAt
+- index on `milestoneId`
+- composite index on `milestoneId` + `kind`
+
+**Table: schema_metadata**
+- namespace
+- key
+- value
+- updatedAt

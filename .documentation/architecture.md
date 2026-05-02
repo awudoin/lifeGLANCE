@@ -5,6 +5,7 @@
 
 # Backend
 - NodeJs API server
+- Express
 - Drizzle ORM
 - SQLite Database
 - Files stored in media directory with links in the database
@@ -25,6 +26,12 @@
 
 ## URL/API Layer
 - Serves files to frontend
+
+## Backend Configuration
+- `DATABASE_URL`
+- `MEDIA_ROOT`
+- `PORT`
+- `CORS_ORIGIN`
 
 # Authentication
 - Currently this is a single-user, locally-hosted app
