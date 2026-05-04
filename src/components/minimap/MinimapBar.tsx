@@ -55,17 +55,32 @@ export default function MinimapBar({
 
     // Current viewport rect
     const centerMs = todayMs + panMs;
-    const { startMs: vsStart, endMs: vsEnd } = getTimeRangeForView(zoom, centerMs, viewMode, customHalfMs);
+    const { startMs: vsStart, endMs: vsEnd } = getTimeRangeForView(
+        zoom,
+        centerMs,
+        viewMode,
+        customHalfMs,
+    );
     const vx1 = Math.max(0, msToX(vsStart));
     const vx2 = Math.min(w, msToX(vsEnd));
 
     const todayX = msToX(todayMs);
 
     // Drag / click
-    const drag = useRef({ active: false, startX: 0, startPan: 0, moved: false });
+    const drag = useRef({
+        active: false,
+        startX: 0,
+        startPan: 0,
+        moved: false,
+    });
 
     function pointerDown(clientX: number) {
-        drag.current = { active: true, startX: clientX, startPan: panMs, moved: false };
+        drag.current = {
+            active: true,
+            startX: clientX,
+            startPan: panMs,
+            moved: false,
+        };
     }
     function pointerMove(clientX: number) {
         const d = drag.current;
@@ -100,7 +115,14 @@ export default function MinimapBar({
             <svg width={w} height={H} style={{ display: "block" }}>
                 <title>Minimap</title>
                 {/* Axis */}
-                <line x1={0} y1={H / 2} x2={w} y2={H / 2} stroke="rgba(232,224,208,0.07)" strokeWidth={1} />
+                <line
+                    x1={0}
+                    y1={H / 2}
+                    x2={w}
+                    y2={H / 2}
+                    stroke="rgba(232,224,208,0.07)"
+                    strokeWidth={1}
+                />
 
                 {/* Viewport rect */}
                 {vx2 > vx1 && (
@@ -122,7 +144,16 @@ export default function MinimapBar({
                     const x = msToX(new Date(m.date).getTime());
                     if (x < -3 || x > w + 3) return null;
                     const isPast = new Date(m.date).getTime() < todayMs;
-                    return <circle key={m.id} cx={x} cy={H / 2} r={2.5} fill={m.color} opacity={isPast ? 0.5 : 0.85} />;
+                    return (
+                        <circle
+                            key={m.id}
+                            cx={x}
+                            cy={H / 2}
+                            r={2.5}
+                            fill={m.color}
+                            opacity={isPast ? 0.5 : 0.85}
+                        />
+                    );
                 })}
 
                 {/* Today marker */}

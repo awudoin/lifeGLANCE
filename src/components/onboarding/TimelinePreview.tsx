@@ -44,7 +44,14 @@ export default function TimelinePreview({ milestones = [] }: TimelinePreviewProp
                 </defs>
 
                 {/* Axis */}
-                <line x1={0} y1={AXIS_Y} x2={width} y2={AXIS_Y} stroke="rgba(232,224,208,0.12)" strokeWidth={1} />
+                <line
+                    x1={0}
+                    y1={AXIS_Y}
+                    x2={width}
+                    y2={AXIS_Y}
+                    stroke="rgba(232,224,208,0.12)"
+                    strokeWidth={1}
+                />
 
                 {/* Today marker */}
                 <line
@@ -79,7 +86,10 @@ export default function TimelinePreview({ milestones = [] }: TimelinePreviewProp
                     return (
                         <g
                             key={m.id}
-                            style={{ animation: "milestone-appear 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards" }}
+                            style={{
+                                animation:
+                                    "milestone-appear 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards",
+                            }}
                         >
                             <line
                                 x1={x}
@@ -106,8 +116,22 @@ export default function TimelinePreview({ milestones = [] }: TimelinePreviewProp
                 })}
 
                 {/* Edge fades */}
-                <rect x={0} y={0} width={50} height={HEIGHT} fill="url(#prev-left)" pointerEvents="none" />
-                <rect x={width - 50} y={0} width={50} height={HEIGHT} fill="url(#prev-right)" pointerEvents="none" />
+                <rect
+                    x={0}
+                    y={0}
+                    width={50}
+                    height={HEIGHT}
+                    fill="url(#prev-left)"
+                    pointerEvents="none"
+                />
+                <rect
+                    x={width - 50}
+                    y={0}
+                    width={50}
+                    height={HEIGHT}
+                    fill="url(#prev-right)"
+                    pointerEvents="none"
+                />
             </svg>
         </div>
     );

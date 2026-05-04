@@ -40,15 +40,27 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
         onComplete([pastMilestone, futureMilestone].filter((m): m is FrontendMilestone => !!m));
     }
 
-    const previewMilestones = [pastMilestone, futureMilestone].filter((m): m is FrontendMilestone => !!m);
+    const previewMilestones = [pastMilestone, futureMilestone].filter(
+        (m): m is FrontendMilestone => !!m,
+    );
 
     return (
         <div className={`onboarding${step === 1 ? " onboarding-welcome" : ""}`}>
             {step === 1 && <Step1Welcome onBegin={handleBegin} onSkip={finish} />}
             {step === 2 && <Step2Past onSubmit={handlePast} onSkip={finish} />}
-            {step === 3 && <Step3Future onSubmit={handleFuture} onSkip={finish} pastMilestone={pastMilestone} />}
+            {step === 3 && (
+                <Step3Future
+                    onSubmit={handleFuture}
+                    onSkip={finish}
+                    pastMilestone={pastMilestone}
+                />
+            )}
             {step === 4 && (
-                <Step4Reveal onComplete={finish} pastMilestone={pastMilestone} futureMilestone={futureMilestone} />
+                <Step4Reveal
+                    onComplete={finish}
+                    pastMilestone={pastMilestone}
+                    futureMilestone={futureMilestone}
+                />
             )}
 
             {/* Timeline preview strip appears from step 2 onwards */}

@@ -34,7 +34,10 @@ export default function Step2Past({ onSubmit, onSkip }: Step2PastProps) {
     const [error, setError] = useState("");
 
     const canSubmit =
-        title.trim() && year.length === 4 && Number(year) > 1900 && Number(year) <= new Date().getFullYear();
+        title.trim() &&
+        year.length === 4 &&
+        Number(year) > 1900 &&
+        Number(year) <= new Date().getFullYear();
 
     async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -49,7 +52,12 @@ export default function Step2Past({ onSubmit, onSkip }: Step2PastProps) {
 
         setBusy(true);
         try {
-            await onSubmit({ title: title.trim(), date, date_precision: "month", category: "personal" });
+            await onSubmit({
+                title: title.trim(),
+                date,
+                date_precision: "month",
+                category: "personal",
+            });
         } finally {
             setBusy(false);
         }

@@ -50,7 +50,12 @@ export default function Step3Future({ onSubmit, onSkip }: Step3FutureProps) {
 
         setBusy(true);
         try {
-            await onSubmit({ title: title.trim(), date, date_precision: "month", category: "personal" });
+            await onSubmit({
+                title: title.trim(),
+                date,
+                date_precision: "month",
+                category: "personal",
+            });
         } finally {
             setBusy(false);
         }

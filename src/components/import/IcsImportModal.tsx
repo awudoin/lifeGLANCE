@@ -10,7 +10,13 @@ interface Props {
     onClose: () => void;
 }
 
-export default function IcsImportModal({ candidates, timedCount, categories, onImport, onClose }: Props) {
+export default function IcsImportModal({
+    candidates,
+    timedCount,
+    categories,
+    onImport,
+    onClose,
+}: Props) {
     const [rows, setRows] = useState(candidates);
     const overlayRef = useRef<HTMLDivElement>(null);
     useOverlayClick({ ref: overlayRef, callback: onClose });
@@ -48,17 +54,19 @@ export default function IcsImportModal({ candidates, timedCount, categories, onI
                 </div>
 
                 <p className="ics-notice">
-                    Import is designed for life milestones — birthdays, graduations, trips. Uncheck anything that
-                    doesn't belong.
+                    Import is designed for life milestones — birthdays, graduations, trips. Uncheck
+                    anything that doesn't belong.
                 </p>
 
                 <div className="ics-stats">
                     <span>
-                        {candidates.length} all-day event{candidates.length !== 1 ? "s" : ""} found
+                        {candidates.length} all-day event
+                        {candidates.length !== 1 ? "s" : ""} found
                     </span>
                     {timedCount > 0 && (
                         <span className="ics-stats-skipped">
-                            · {timedCount} timed event{timedCount !== 1 ? "s" : ""} skipped
+                            · {timedCount} timed event
+                            {timedCount !== 1 ? "s" : ""} skipped
                         </span>
                     )}
                 </div>
@@ -102,13 +110,17 @@ export default function IcsImportModal({ candidates, timedCount, categories, onI
                                         </td>
                                         <td className="ics-col-title">
                                             <span>{row.title}</span>
-                                            {row.isRecurring && <span className="ics-annual-badge">annual</span>}
+                                            {row.isRecurring && (
+                                                <span className="ics-annual-badge">annual</span>
+                                            )}
                                         </td>
                                         <td className="ics-col-cat">
                                             <select
                                                 className="ics-cat-select"
                                                 value={row.category}
-                                                onChange={(e) => setCategory(row.key, e.target.value)}
+                                                onChange={(e) =>
+                                                    setCategory(row.key, e.target.value)
+                                                }
                                             >
                                                 {categories.map((c) => (
                                                     <option key={c.id} value={c.id}>
@@ -134,7 +146,8 @@ export default function IcsImportModal({ candidates, timedCount, categories, onI
                         disabled={selectedCount === 0}
                         onClick={handleImport}
                     >
-                        import {selectedCount} milestone{selectedCount !== 1 ? "s" : ""}
+                        import {selectedCount} milestone
+                        {selectedCount !== 1 ? "s" : ""}
                     </button>
                 </div>
             </div>

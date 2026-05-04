@@ -31,7 +31,12 @@ interface Props {
     categories: CategoryRecord[];
 }
 
-export default function AddMilestoneSheet({ onSave, onClose, existing, categories = DEFAULT_CATEGORIES }: Props) {
+export default function AddMilestoneSheet({
+    onSave,
+    onClose,
+    existing,
+    categories = DEFAULT_CATEGORIES,
+}: Props) {
     const isEdit = !!existing;
 
     const [title, setTitle] = useState(existing?.title ?? "");
@@ -133,7 +138,9 @@ export default function AddMilestoneSheet({ onSave, onClose, existing, categorie
             {/* <dialog className="sheet"> */}
             <form className="sheet" onSubmit={handleSubmit}>
                 <div className="sheet-header">
-                    <span className="sheet-title">{isEdit ? "edit milestone" : "add milestone"}</span>
+                    <span className="sheet-title">
+                        {isEdit ? "edit milestone" : "add milestone"}
+                    </span>
                     <button type="button" className="sheet-close" onClick={onClose}>
                         ✕
                     </button>
@@ -244,7 +251,10 @@ export default function AddMilestoneSheet({ onSave, onClose, existing, categorie
                                 className={`category-chip ${category === cat.id ? "selected" : ""}`}
                                 onClick={() => setCategory(cat.id)}
                             >
-                                <div className="category-chip-dot" style={{ background: cat.color }} />
+                                <div
+                                    className="category-chip-dot"
+                                    style={{ background: cat.color }}
+                                />
                                 {cat.label}
                             </button>
                         ))}
@@ -305,7 +315,11 @@ export default function AddMilestoneSheet({ onSave, onClose, existing, categorie
                         <button
                             type="button"
                             className="btn"
-                            style={{ fontSize: "0.75rem", padding: "0.4rem 0.85rem", alignSelf: "flex-start" }}
+                            style={{
+                                fontSize: "0.75rem",
+                                padding: "0.4rem 0.85rem",
+                                alignSelf: "flex-start",
+                            }}
                             onClick={() => photoRef.current?.click()}
                         >
                             attach photo
@@ -342,7 +356,10 @@ export default function AddMilestoneSheet({ onSave, onClose, existing, categorie
                             <button
                                 type="button"
                                 className="btn-ghost"
-                                style={{ alignSelf: "flex-start", fontSize: "0.72rem" }}
+                                style={{
+                                    alignSelf: "flex-start",
+                                    fontSize: "0.72rem",
+                                }}
                                 onClick={() => {
                                     setMediaFile(null);
                                     setMediaRemoved(true);
@@ -357,7 +374,9 @@ export default function AddMilestoneSheet({ onSave, onClose, existing, categorie
                         // Existing media — show indicator with replace/remove
                         <div className="audio-attached-row">
                             <span className="audio-attached-label">
-                                {existing.media_type === "video" ? "▶ video attached" : "♪ audio attached"}
+                                {existing.media_type === "video"
+                                    ? "▶ video attached"
+                                    : "♪ audio attached"}
                             </span>
                             <button
                                 type="button"
@@ -383,7 +402,11 @@ export default function AddMilestoneSheet({ onSave, onClose, existing, categorie
                         <button
                             type="button"
                             className="btn"
-                            style={{ fontSize: "0.75rem", padding: "0.4rem 0.85rem", alignSelf: "flex-start" }}
+                            style={{
+                                fontSize: "0.75rem",
+                                padding: "0.4rem 0.85rem",
+                                alignSelf: "flex-start",
+                            }}
                             onClick={() => mediaRef.current?.click()}
                         >
                             attach audio / video
@@ -429,7 +452,9 @@ export default function AddMilestoneSheet({ onSave, onClose, existing, categorie
                                 const base = Number(year);
                                 const maxYear = base + 99;
                                 const end = Math.min(
-                                    recEndYear ? Number(recEndYear) : Math.max(base, new Date().getFullYear()) + 3,
+                                    recEndYear
+                                        ? Number(recEndYear)
+                                        : Math.max(base, new Date().getFullYear()) + 3,
                                     maxYear,
                                 );
                                 const count = Math.max(0, end - base + 1);
@@ -442,20 +467,30 @@ export default function AddMilestoneSheet({ onSave, onClose, existing, categorie
                                             className="input input-sm"
                                             style={{ width: "5.2rem" }}
                                             value={recEndYear}
-                                            placeholder={String(Math.max(base, new Date().getFullYear()) + 3)}
+                                            placeholder={String(
+                                                Math.max(base, new Date().getFullYear()) + 3,
+                                            )}
                                             onChange={(e) => {
                                                 const v = e.target.value;
                                                 if (!v) {
                                                     setRecEndYear("");
                                                     return;
                                                 }
-                                                setRecEndYear(String(Math.min(Math.max(Number(v), base), maxYear)));
+                                                setRecEndYear(
+                                                    String(
+                                                        Math.min(
+                                                            Math.max(Number(v), base),
+                                                            maxYear,
+                                                        ),
+                                                    ),
+                                                );
                                             }}
                                             min={year}
                                             max={maxYear}
                                         />
                                         <span className="recurrence-range-count">
-                                            {count} instance{count !== 1 ? "s" : ""}
+                                            {count} instance
+                                            {count !== 1 ? "s" : ""}
                                         </span>
                                     </div>
                                 );
@@ -464,7 +499,9 @@ export default function AddMilestoneSheet({ onSave, onClose, existing, categorie
                 )}
                 {isEdit && existing?.recurrence === "annual" && (
                     <div className="sheet-field">
-                        <div className="detail-recurrence-warn">↻ repeats annually — editing this instance only</div>
+                        <div className="detail-recurrence-warn">
+                            ↻ repeats annually — editing this instance only
+                        </div>
                     </div>
                 )}
 
@@ -476,7 +513,10 @@ export default function AddMilestoneSheet({ onSave, onClose, existing, categorie
                             type="button"
                             className="btn"
                             onClick={onClose}
-                            style={{ fontSize: "0.8rem", padding: "0.45rem 0.9rem" }}
+                            style={{
+                                fontSize: "0.8rem",
+                                padding: "0.45rem 0.9rem",
+                            }}
                         >
                             cancel
                         </button>
@@ -484,7 +524,10 @@ export default function AddMilestoneSheet({ onSave, onClose, existing, categorie
                             type="submit"
                             className="btn btn-filled"
                             disabled={!canSave || busy}
-                            style={{ fontSize: "0.8rem", padding: "0.45rem 0.9rem" }}
+                            style={{
+                                fontSize: "0.8rem",
+                                padding: "0.45rem 0.9rem",
+                            }}
                         >
                             {busy ? "saving…" : isEdit ? "save changes" : "add to timeline"}
                         </button>

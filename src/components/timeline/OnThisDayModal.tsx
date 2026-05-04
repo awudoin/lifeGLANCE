@@ -31,7 +31,12 @@ export default function OnThisDayModal({ items, onClose, onSelect }: Props) {
                     {items.map((m) => {
                         const yearsAgo = todayYear - new Date(m.date).getFullYear();
                         return (
-                            <button type="button" key={m.id} className="otd-item" onClick={() => onSelect(m)}>
+                            <button
+                                type="button"
+                                key={m.id}
+                                className="otd-item"
+                                onClick={() => onSelect(m)}
+                            >
                                 <div className="otd-dot" style={{ background: m.color }} />
                                 <div className="otd-content">
                                     <div className="otd-title">{m.title}</div>
@@ -40,10 +45,13 @@ export default function OnThisDayModal({ items, onClose, onSelect }: Props) {
                                         {yearsAgo > 0 && (
                                             <span className="otd-years">
                                                 {" "}
-                                                · {yearsAgo} year{yearsAgo !== 1 ? "s" : ""} ago
+                                                · {yearsAgo} year
+                                                {yearsAgo !== 1 ? "s" : ""} ago
                                             </span>
                                         )}
-                                        {m.date_precision === "month" && <span className="otd-approx"> (approx.)</span>}
+                                        {m.date_precision === "month" && (
+                                            <span className="otd-approx"> (approx.)</span>
+                                        )}
                                     </div>
                                 </div>
                             </button>

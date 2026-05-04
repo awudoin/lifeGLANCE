@@ -25,7 +25,7 @@ const COLOR_PALETTE = [
     "#E879F9",
     "#F87171",
 ] as const;
-type ColorPaletteType = typeof COLOR_PALETTE[number]
+type ColorPaletteType = (typeof COLOR_PALETTE)[number];
 
 function slugify(str: string) {
     return str
@@ -131,7 +131,9 @@ export default function SettingsModal({
                 <div className="settings-section">
                     <div className="settings-label">text size</div>
                     {ultraCompact ? (
-                        <div className="settings-note">text size adjustment unavailable on short screens</div>
+                        <div className="settings-note">
+                            text size adjustment unavailable on short screens
+                        </div>
                     ) : (
                         <div className="zoom-tabs">
                             {TEXT_SIZES_ALL.map((s) => (
@@ -152,7 +154,9 @@ export default function SettingsModal({
                 <div className="settings-section">
                     <div className="settings-label">display</div>
                     <label className="settings-toggle-row">
-                        <span className="settings-toggle-label">auto-cluster nearby milestones</span>
+                        <span className="settings-toggle-label">
+                            auto-cluster nearby milestones
+                        </span>
                         <input
                             type="checkbox"
                             className="settings-toggle"
@@ -183,14 +187,21 @@ export default function SettingsModal({
                             const inUse = usedIds.has(cat.id);
                             return (
                                 <div key={cat.id} className="settings-cat-row">
-                                    <div className="settings-cat-dot" style={{ background: cat.color }} />
+                                    <div
+                                        className="settings-cat-dot"
+                                        style={{ background: cat.color }}
+                                    />
                                     <span className="settings-cat-name">{cat.label}</span>
                                     {inUse && <span className="settings-cat-inuse">in use</span>}
                                     <button
                                         type="button"
                                         className="settings-cat-del"
                                         disabled={inUse}
-                                        title={inUse ? "cannot delete — category is in use" : "delete category"}
+                                        title={
+                                            inUse
+                                                ? "cannot delete — category is in use"
+                                                : "delete category"
+                                        }
                                         onClick={() => handleDelete(cat.id)}
                                     >
                                         ✕
@@ -214,7 +225,11 @@ export default function SettingsModal({
                             <button
                                 type="button"
                                 className="btn btn-filled"
-                                style={{ fontSize: "0.75rem", padding: "0.4rem 0.85rem", flexShrink: 0 }}
+                                style={{
+                                    fontSize: "0.75rem",
+                                    padding: "0.4rem 0.85rem",
+                                    flexShrink: 0,
+                                }}
                                 disabled={!newLabel.trim()}
                                 onClick={handleAdd}
                             >
@@ -257,7 +272,10 @@ export default function SettingsModal({
                         <button
                             type="button"
                             className="btn"
-                            style={{ fontSize: "0.75rem", padding: "0.4rem 0.85rem" }}
+                            style={{
+                                fontSize: "0.75rem",
+                                padding: "0.4rem 0.85rem",
+                            }}
                             onClick={onExportImage}
                         >
                             export image
@@ -265,7 +283,10 @@ export default function SettingsModal({
                         <button
                             type="button"
                             className="btn"
-                            style={{ fontSize: "0.75rem", padding: "0.4rem 0.85rem" }}
+                            style={{
+                                fontSize: "0.75rem",
+                                padding: "0.4rem 0.85rem",
+                            }}
                             onClick={onSaveBackup}
                         >
                             save backup
@@ -273,7 +294,10 @@ export default function SettingsModal({
                         <button
                             type="button"
                             className="btn"
-                            style={{ fontSize: "0.75rem", padding: "0.4rem 0.85rem" }}
+                            style={{
+                                fontSize: "0.75rem",
+                                padding: "0.4rem 0.85rem",
+                            }}
                             onClick={() => fileRef.current?.click()}
                         >
                             restore from file
@@ -281,7 +305,10 @@ export default function SettingsModal({
                         <button
                             type="button"
                             className="btn"
-                            style={{ fontSize: "0.75rem", padding: "0.4rem 0.85rem" }}
+                            style={{
+                                fontSize: "0.75rem",
+                                padding: "0.4rem 0.85rem",
+                            }}
                             onClick={() => icsFileRef.current?.click()}
                         >
                             import .ics
@@ -302,8 +329,8 @@ export default function SettingsModal({
                         />
                     </div>
                     <p className="settings-note" style={{ marginTop: "0.5rem" }}>
-                        .ics import supports all-day events only. Timed events are skipped — the import dialog shows a
-                        count of how many were omitted.
+                        .ics import supports all-day events only. Timed events are skipped — the
+                        import dialog shows a count of how many were omitted.
                     </p>
                 </div>
             </div>

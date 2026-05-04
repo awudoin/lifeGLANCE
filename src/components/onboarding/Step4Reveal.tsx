@@ -12,7 +12,11 @@ interface Step4RevealProps {
     futureMilestone: FrontendMilestone | null;
 }
 
-export default function Step4Reveal({ onComplete, pastMilestone, futureMilestone }: Step4RevealProps) {
+export default function Step4Reveal({
+    onComplete,
+    pastMilestone,
+    futureMilestone,
+}: Step4RevealProps) {
     const [phase, setPhase] = useState("typing"); // typing → row1 → row2 → cta
 
     // Derived time distances
@@ -20,8 +24,15 @@ export default function Step4Reveal({ onComplete, pastMilestone, futureMilestone
     const futureInfo = futureMilestone ? getYearsMonths(futureMilestone.date) : null;
 
     // Count-up values
-    const pastYears = useCountUp(pastInfo?.years ?? 0, { active: phase !== "typing", duration: 1100 });
-    const pastMonths = useCountUp(pastInfo?.months ?? 0, { active: phase !== "typing", duration: 900, delay: 800 });
+    const pastYears = useCountUp(pastInfo?.years ?? 0, {
+        active: phase !== "typing",
+        duration: 1100,
+    });
+    const pastMonths = useCountUp(pastInfo?.months ?? 0, {
+        active: phase !== "typing",
+        duration: 900,
+        delay: 800,
+    });
     const futureYears = useCountUp(futureInfo?.years ?? 0, {
         active: phase === "row2" || phase === "cta",
         duration: 1100,
@@ -107,7 +118,9 @@ export default function Step4Reveal({ onComplete, pastMilestone, futureMilestone
                 </div>
 
                 {/* Future stat */}
-                <div className={`stat-reveal-row ${phase === "row2" || phase === "cta" ? "visible" : ""}`}>
+                <div
+                    className={`stat-reveal-row ${phase === "row2" || phase === "cta" ? "visible" : ""}`}
+                >
                     <div className="stat-reveal-label">looking ahead</div>
                     <div className="stat-reveal-value">
                         {futureMilestone ? (
@@ -115,7 +128,9 @@ export default function Step4Reveal({ onComplete, pastMilestone, futureMilestone
                                 {futureMilestone.title} — <em>{formatFutureTime()}</em>
                             </>
                         ) : (
-                            <span style={{ color: "var(--text-muted)" }}>no future event added</span>
+                            <span style={{ color: "var(--text-muted)" }}>
+                                no future event added
+                            </span>
                         )}
                     </div>
                 </div>
@@ -132,7 +147,7 @@ export default function Step4Reveal({ onComplete, pastMilestone, futureMilestone
                     gap: "0.75rem",
                 }}
             >
-                <button type='button' className="btn btn-filled" onClick={onComplete}>
+                <button type="button" className="btn btn-filled" onClick={onComplete}>
                     open my timeline →
                 </button>
                 <div

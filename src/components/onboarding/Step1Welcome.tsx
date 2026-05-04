@@ -12,8 +12,16 @@ export default function Step1Welcome({ onBegin, onSkip }: Props) {
     // Phase: 'life' → 'glance' → 'tagline' → 'cta'
     const [phase, setPhase] = useState("life");
 
-    const lifeTyped = useTypewriter("life", { active: phase === "life", delay: 55, jitter: 40 });
-    const glanceTyped = useTypewriter("GLANCE", { active: phase === "glance", delay: 55, jitter: 40 });
+    const lifeTyped = useTypewriter("life", {
+        active: phase === "life",
+        delay: 55,
+        jitter: 40,
+    });
+    const glanceTyped = useTypewriter("GLANCE", {
+        active: phase === "glance",
+        delay: 55,
+        jitter: 40,
+    });
     const taglineTyped = useTypewriter(TAGLINE, {
         active: phase === "tagline",
         delay: 30,
@@ -45,7 +53,11 @@ export default function Step1Welcome({ onBegin, onSkip }: Props) {
                         {phase === "life" && <span className="cursor" />}
                     </span>
                     <span className="logo-glance">
-                        {phase === "glance" ? glanceTyped.displayed : phase !== "life" ? "GLANCE" : ""}
+                        {phase === "glance"
+                            ? glanceTyped.displayed
+                            : phase !== "life"
+                              ? "GLANCE"
+                              : ""}
                         {phase === "glance" && <span className="cursor" />}
                     </span>
                 </div>

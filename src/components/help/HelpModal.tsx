@@ -107,11 +107,15 @@ export default function HelpModal({ onClose }: Props) {
                     <div className="help-footer-storage">
                         <span className="help-footer-meta">
                             indexedDB&ensp;
-                            <span className="help-footer-value">{idbEst ? `${fmtBytes(idbEst.usage)} used` : "…"}</span>
+                            <span className="help-footer-value">
+                                {idbEst ? `${fmtBytes(idbEst.usage)} used` : "…"}
+                            </span>
                             {idbEst && (
                                 <>
                                     <span className="help-footer-dim"> / </span>
-                                    <span className="help-footer-value">{fmtBytes(idbEst.quota)} available</span>
+                                    <span className="help-footer-value">
+                                        {fmtBytes(idbEst.quota)} available
+                                    </span>
                                 </>
                             )}
                         </span>

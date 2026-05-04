@@ -38,7 +38,9 @@ function StatMilestone({ m, align }: StatMilestoneProps) {
                     onDone={() => setReadyForKey(k)}
                 />
             </div>
-            <div className="stat-milestone-rel">{labelReady && <AnimatedRelLabel key={k} dateStr={m.date} />}</div>
+            <div className="stat-milestone-rel">
+                {labelReady && <AnimatedRelLabel key={k} dateStr={m.date} />}
+            </div>
         </div>
     );
 }
@@ -103,7 +105,10 @@ export default function StatsPanel({
 
     if (compact) {
         return (
-            <div className="stat-panels" style={viewMode === "future" ? { justifyContent: "flex-end" } : undefined}>
+            <div
+                className="stat-panels"
+                style={viewMode === "future" ? { justifyContent: "flex-end" } : undefined}
+            >
                 {showPast && (
                     <div className="stat-pill-wrap">
                         <button
@@ -123,14 +128,22 @@ export default function StatsPanel({
                                     if (pastSwipeX.current === null || past.length <= 1) return;
                                     const dx = e.changedTouches[0].clientX - pastSwipeX.current;
                                     if (dx < -SWIPE) onPastChange((pastIdx + 1) % past.length);
-                                    else if (dx > SWIPE) onPastChange((pastIdx - 1 + past.length) % past.length);
+                                    else if (dx > SWIPE)
+                                        onPastChange((pastIdx - 1 + past.length) % past.length);
                                     pastSwipeX.current = null;
                                 }}
                             >
                                 <div className="stat-panel-count">
-                                    {past.length} milestone{past.length !== 1 ? "s" : ""}
+                                    {past.length} milestone
+                                    {past.length !== 1 ? "s" : ""}
                                 </div>
-                                <NavRow idx={pastIdx} total={past.length} onChange={onPastChange} align="left" flip />
+                                <NavRow
+                                    idx={pastIdx}
+                                    total={past.length}
+                                    onChange={onPastChange}
+                                    align="left"
+                                    flip
+                                />
                                 {past[pastIdx] && <StatMilestone m={past[pastIdx]} align="left" />}
                             </div>
                         )}
@@ -154,17 +167,28 @@ export default function StatsPanel({
                                 onTouchEnd={(e) => {
                                     if (futureSwipeX.current === null || future.length <= 1) return;
                                     const dx = e.changedTouches[0].clientX - futureSwipeX.current;
-                                    if (dx < -SWIPE) onFutureChange((futureIdx + 1) % future.length);
+                                    if (dx < -SWIPE)
+                                        onFutureChange((futureIdx + 1) % future.length);
                                     else if (dx > SWIPE)
-                                        onFutureChange((futureIdx - 1 + future.length) % future.length);
+                                        onFutureChange(
+                                            (futureIdx - 1 + future.length) % future.length,
+                                        );
                                     futureSwipeX.current = null;
                                 }}
                             >
                                 <div className="stat-panel-count">
-                                    {future.length} milestone{future.length !== 1 ? "s" : ""}
+                                    {future.length} milestone
+                                    {future.length !== 1 ? "s" : ""}
                                 </div>
-                                <NavRow idx={futureIdx} total={future.length} onChange={onFutureChange} align="right" />
-                                {future[futureIdx] && <StatMilestone m={future[futureIdx]} align="right" />}
+                                <NavRow
+                                    idx={futureIdx}
+                                    total={future.length}
+                                    onChange={onFutureChange}
+                                    align="right"
+                                />
+                                {future[futureIdx] && (
+                                    <StatMilestone m={future[futureIdx]} align="right" />
+                                )}
                             </div>
                         )}
                     </div>
@@ -174,7 +198,10 @@ export default function StatsPanel({
     }
 
     return (
-        <div className="stat-panels" style={viewMode === "future" ? { justifyContent: "flex-end" } : undefined}>
+        <div
+            className="stat-panels"
+            style={viewMode === "future" ? { justifyContent: "flex-end" } : undefined}
+        >
             {/* Left — past */}
             {showPast && (
                 <div
@@ -187,7 +214,8 @@ export default function StatsPanel({
                         const dx = e.changedTouches[0].clientX - pastSwipeX.current;
                         // swipe left = older (higher idx); swipe right = more recent (lower idx)
                         if (dx < -SWIPE) onPastChange((pastIdx + 1) % past.length);
-                        else if (dx > SWIPE) onPastChange((pastIdx - 1 + past.length) % past.length);
+                        else if (dx > SWIPE)
+                            onPastChange((pastIdx - 1 + past.length) % past.length);
                         pastSwipeX.current = null;
                     }}
                 >
@@ -195,7 +223,13 @@ export default function StatsPanel({
                     <div className="stat-panel-count">
                         {past.length} milestone{past.length !== 1 ? "s" : ""}
                     </div>
-                    <NavRow idx={pastIdx} total={past.length} onChange={onPastChange} align="left" flip />
+                    <NavRow
+                        idx={pastIdx}
+                        total={past.length}
+                        onChange={onPastChange}
+                        align="left"
+                        flip
+                    />
                     {past[pastIdx] && <StatMilestone m={past[pastIdx]} align="left" />}
                 </div>
             )}
@@ -212,15 +246,22 @@ export default function StatsPanel({
                         const dx = e.changedTouches[0].clientX - futureSwipeX.current;
                         // swipe left = further future (higher idx); swipe right = nearer (lower idx)
                         if (dx < -SWIPE) onFutureChange((futureIdx + 1) % future.length);
-                        else if (dx > SWIPE) onFutureChange((futureIdx - 1 + future.length) % future.length);
+                        else if (dx > SWIPE)
+                            onFutureChange((futureIdx - 1 + future.length) % future.length);
                         futureSwipeX.current = null;
                     }}
                 >
                     <div className="stat-panel-label">future →</div>
                     <div className="stat-panel-count">
-                        {future.length} milestone{future.length !== 1 ? "s" : ""}
+                        {future.length} milestone
+                        {future.length !== 1 ? "s" : ""}
                     </div>
-                    <NavRow idx={futureIdx} total={future.length} onChange={onFutureChange} align="right" />
+                    <NavRow
+                        idx={futureIdx}
+                        total={future.length}
+                        onChange={onFutureChange}
+                        align="right"
+                    />
                     {future[futureIdx] && <StatMilestone m={future[futureIdx]} align="right" />}
                 </div>
             )}

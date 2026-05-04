@@ -43,7 +43,8 @@ export default function SummaryModal({ milestones, onClose }: SummaryModalProps)
         // Span from earliest to latest (deduped)
         const spanMs =
             deduped.length > 1
-                ? new Date(deduped[deduped.length - 1].date).getTime() - new Date(deduped[0].date).getTime()
+                ? new Date(deduped[deduped.length - 1].date).getTime() -
+                  new Date(deduped[0].date).getTime()
                 : 0;
 
         // Longest gap between consecutive deduplicated milestones
@@ -122,7 +123,9 @@ export default function SummaryModal({ milestones, onClose }: SummaryModalProps)
                                 <div className="summary-label">upcoming</div>
                             </div>
                             <div className="summary-cell">
-                                <div className="summary-value">{stats.spanMs > 0 ? formatSpan(stats.spanMs) : "—"}</div>
+                                <div className="summary-value">
+                                    {stats.spanMs > 0 ? formatSpan(stats.spanMs) : "—"}
+                                </div>
                                 <div className="summary-label">time tracked</div>
                             </div>
                         </div>
@@ -136,7 +139,9 @@ export default function SummaryModal({ milestones, onClose }: SummaryModalProps)
                                     <span className="summary-gap-arrow">→</span>
                                     <span className="summary-gap-title">{stats.gapB.title}</span>
                                 </div>
-                                <div className="summary-gap-dur">{formatSpan(stats.longestGap)}</div>
+                                <div className="summary-gap-dur">
+                                    {formatSpan(stats.longestGap)}
+                                </div>
                             </div>
                         )}
 
@@ -145,9 +150,12 @@ export default function SummaryModal({ milestones, onClose }: SummaryModalProps)
                             <div className="summary-section">
                                 <div className="summary-section-label">busiest year</div>
                                 <div className="summary-busiest">
-                                    <span className="summary-busiest-year">{stats.busiestEntry[0]}</span>
+                                    <span className="summary-busiest-year">
+                                        {stats.busiestEntry[0]}
+                                    </span>
                                     <span className="summary-busiest-count">
-                                        {stats.busiestEntry[1]} milestone{stats.busiestEntry[1] !== 1 ? "s" : ""}
+                                        {stats.busiestEntry[1]} milestone
+                                        {stats.busiestEntry[1] !== 1 ? "s" : ""}
                                     </span>
                                 </div>
                             </div>
@@ -164,7 +172,9 @@ export default function SummaryModal({ milestones, onClose }: SummaryModalProps)
                                             <div className="summary-decade-track">
                                                 <div
                                                     className="summary-decade-bar"
-                                                    style={{ width: `${(count / stats.maxDecCount) * 100}%` }}
+                                                    style={{
+                                                        width: `${(count / stats.maxDecCount) * 100}%`,
+                                                    }}
                                                 />
                                             </div>
                                             <div className="summary-decade-count">{count}</div>

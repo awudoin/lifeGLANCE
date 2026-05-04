@@ -56,7 +56,13 @@ export function toggleMuted() {
 
 // ── Primitive: single sine tone with envelope ─────────────────────────────────
 
-function tone(freq: number, duration: number, peak = 0.09, type: OscillatorType = "sine", delaySec = 0): void {
+function tone(
+    freq: number,
+    duration: number,
+    peak = 0.09,
+    type: OscillatorType = "sine",
+    delaySec = 0,
+): void {
     if (_muted) return;
     const c = getCtx();
     if (!c) return;

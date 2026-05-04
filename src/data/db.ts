@@ -41,7 +41,8 @@ export function initDB(): Promise<IDBDatabase> {
 
                 const store = transaction.objectStore(STORE);
                 store.openCursor().onsuccess = (cursorEvent: Event) => {
-                    const cursor = (cursorEvent.target as IDBRequest<IDBCursorWithValue | null>).result;
+                    const cursor = (cursorEvent.target as IDBRequest<IDBCursorWithValue | null>)
+                        .result;
                     if (!cursor) {
                         return;
                     }
@@ -125,7 +126,9 @@ export function dbClearAllMilestones(): Promise<void> {
     });
 }
 
-export async function dbReplaceAllMilestones(items: FrontendMilestone[]): Promise<FrontendMilestone[]> {
+export async function dbReplaceAllMilestones(
+    items: FrontendMilestone[],
+): Promise<FrontendMilestone[]> {
     await dbClearAllMilestones();
     for (const item of items) {
         await dbPut(item);

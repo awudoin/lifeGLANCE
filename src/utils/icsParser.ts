@@ -4,8 +4,14 @@ import type { IcsCandidate, IcsParseResult } from "../data/types";
 // Timed events (anything with a T in DTSTART) are skipped and counted separately.
 
 const CAT_KEYWORDS = [
-    { cat: "family", words: ["family", "kid", "child", "parent", "wedding", "reunion", "baby", "shower"] },
-    { cat: "travel", words: ["travel", "vacation", "trip", "holiday", "flight", "cruise", "visit"] },
+    {
+        cat: "family",
+        words: ["family", "kid", "child", "parent", "wedding", "reunion", "baby", "shower"],
+    },
+    {
+        cat: "travel",
+        words: ["travel", "vacation", "trip", "holiday", "flight", "cruise", "visit"],
+    },
     {
         cat: "career",
         words: [
@@ -25,9 +31,22 @@ const CAT_KEYWORDS = [
     },
     {
         cat: "home",
-        words: ["home", "house", "moving", "move", "garden", "renovation", "closing", "lease", "apartment"],
+        words: [
+            "home",
+            "house",
+            "moving",
+            "move",
+            "garden",
+            "renovation",
+            "closing",
+            "lease",
+            "apartment",
+        ],
     },
-    { cat: "health", words: ["health", "medical", "doctor", "fitness", "gym", "surgery", "hospital", "recovery"] },
+    {
+        cat: "health",
+        words: ["health", "medical", "doctor", "fitness", "gym", "surgery", "hospital", "recovery"],
+    },
     {
         cat: "education",
         words: [
@@ -71,7 +90,11 @@ function unfold(text: string): string {
 
 // Unescape ICS text values
 function unescapeIcs(val: string): string {
-    return val.replace(/\\n/gi, "\n").replace(/\\,/g, ",").replace(/\\;/g, ";").replace(/\\\\/g, "\\");
+    return val
+        .replace(/\\n/gi, "\n")
+        .replace(/\\,/g, ",")
+        .replace(/\\;/g, ";")
+        .replace(/\\\\/g, "\\");
 }
 
 // Returns a Date for YYYYMMDD all-day values, or null if timed/invalid

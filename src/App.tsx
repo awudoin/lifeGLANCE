@@ -43,7 +43,10 @@ export default function App() {
     const content =
         screen === "loading" ? (
             <div className="app-loading">
-                <span className="cursor" style={{ width: "8px", height: "8px", borderRadius: "50%" }} />
+                <span
+                    className="cursor"
+                    style={{ width: "8px", height: "8px", borderRadius: "50%" }}
+                />
             </div>
         ) : screen === "onboarding" ? (
             <Onboarding onComplete={handleOnboardingComplete} />

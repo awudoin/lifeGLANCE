@@ -3,7 +3,13 @@ import { dbGetMedia } from "../../data/db";
 import type { FrontendMilestone } from "../../data/types";
 import { ageAtDate, formatDateDisplay, relativeLabel } from "../../utils/dates";
 import type { ViewMode, ZoomLevel } from "../../utils/timeline";
-import { assignLanes, dateToX, getMsPerPx, getTickMarks, getTimeRangeForView } from "../../utils/timeline";
+import {
+    assignLanes,
+    dateToX,
+    getMsPerPx,
+    getTickMarks,
+    getTimeRangeForView,
+} from "../../utils/timeline";
 
 // Map text-size labels → root px value (must match TimelineView TEXT_SIZES)
 const REM_PX = { small: 19, normal: 22, big: 26, bigger: 30 };
@@ -54,7 +60,8 @@ function wrapTitle(text: string, maxChars: number): string[] {
             if (c2.length <= maxChars) {
                 line2 = c2;
             } else {
-                if (line2.length < maxChars - 1) line2 = `${line2} ${word.slice(0, maxChars - line2.length - 2)}…`;
+                if (line2.length < maxChars - 1)
+                    line2 = `${line2} ${word.slice(0, maxChars - line2.length - 2)}…`;
                 break;
             }
         }
@@ -90,14 +97,25 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
     const SEC_GAP = Math.round(remPx * 0.45);
     const META_LH = Math.round(remPx * 0.73);
     const BOT_PAD = Math.round(remPx * 0.4);
-    const CARD_H1 = TOP_PAD + META_LH + SEC_GAP + META_LH + META_LH + (birthday ? META_LH : 0) + BOT_PAD;
-    const CARD_H2 = TOP_PAD + META_LH + TITLE_LH + SEC_GAP + META_LH + META_LH + (birthday ? META_LH : 0) + BOT_PAD;
+    const CARD_H1 =
+        TOP_PAD + META_LH + SEC_GAP + META_LH + META_LH + (birthday ? META_LH : 0) + BOT_PAD;
+    const CARD_H2 =
+        TOP_PAD +
+        META_LH +
+        TITLE_LH +
+        SEC_GAP +
+        META_LH +
+        META_LH +
+        (birthday ? META_LH : 0) +
+        BOT_PAD;
     const CARD_STEP = CARD_H2 + Math.round(remPx * 0.55);
     const MAX_CONN = Math.round(CONN_LEN * 1.6);
 
     const wrapRef = useRef<HTMLDivElement | null>(null);
     const [size, setSize] = useState({ w: 800, h: 340 });
-    const [compactLayout, setCompactLayout] = useState(() => window.matchMedia("(max-height: 900px)").matches);
+    const [compactLayout, setCompactLayout] = useState(
+        () => window.matchMedia("(max-height: 900px)").matches,
+    );
     const [photoTip, setPhotoTip] = useState<PhotoTip | null>(null);
     const [playingId, setPlayingId] = useState<string | null>(null);
     const audioElRef = useRef<HTMLAudioElement | null>(null);
@@ -162,7 +180,8 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
         return () => {
             if (audioElRef.current) {
                 audioElRef.current.pause();
-                if (audioElRef.current._objectUrl) URL.revokeObjectURL(audioElRef.current._objectUrl);
+                if (audioElRef.current._objectUrl)
+                    URL.revokeObjectURL(audioElRef.current._objectUrl);
                 audioElRef.current = null;
             }
         };
@@ -200,7 +219,9 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
     useEffect(() => {
         const el = wrapRef.current;
         if (!el) return;
-        const obs = new ResizeObserver(([e]) => setSize({ w: e.contentRect.width, h: e.contentRect.height }));
+        const obs = new ResizeObserver(([e]) =>
+            setSize({ w: e.contentRect.width, h: e.contentRect.height }),
+        );
         obs.observe(el);
         return () => obs.disconnect();
     }, []);
@@ -223,7 +244,9 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
     const CLUSTER_THRESHOLD = CARD_W * (compactLayout ? 0.6 : 0.4);
     const maxLane = Math.max(0, Math.floor((axisY - MAX_CONN - CARD_H2 - TOP_RESERVE) / CARD_STEP));
 
-    const sorted = [...milestones].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const sorted = [...milestones].sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+    );
     const groups: FrontendMilestone[][] = [];
     let gi = 0;
     while (gi < sorted.length) {
@@ -249,7 +272,11 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
     // startDrag reads panMsRef so it doesn't need panMs as a dep
     const startDrag = useCallback((clientX: number) => {
         if (animRef.current) cancelAnimationFrame(animRef.current);
-        drag.current = { active: true, startX: clientX, startPan: panMsRef.current };
+        drag.current = {
+            active: true,
+            startX: clientX,
+            startPan: panMsRef.current,
+        };
     }, []);
 
     const moveDrag = useCallback(
@@ -291,7 +318,11 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
                 width={w}
                 height={h}
                 viewBox={`0 0 ${w} ${h}`}
-                style={{ display: "block", fontSize: "1rem", overflow: "visible" }}
+                style={{
+                    display: "block",
+                    fontSize: "1rem",
+                    overflow: "visible",
+                }}
             >
                 <title>Timeline</title>
                 <defs>
@@ -321,7 +352,9 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
                                 x={tick.x}
                                 y={axisY + 20}
                                 textAnchor="middle"
-                                fill={tick.major ? "rgba(232,224,208,0.35)" : "rgba(232,224,208,0.18)"}
+                                fill={
+                                    tick.major ? "rgba(232,224,208,0.35)" : "rgba(232,224,208,0.18)"
+                                }
                                 fontSize={tick.major ? "0.69em" : "0.56em"}
                                 fontFamily="'Courier Prime', monospace"
                             >
@@ -332,19 +365,33 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
                 ))}
 
                 {/* ── Axis line ───────────────────────────────────────────────────── */}
-                <line x1={0} y1={axisY} x2={w} y2={axisY} stroke="rgba(232,224,208,0.18)" strokeWidth={1} />
+                <line
+                    x1={0}
+                    y1={axisY}
+                    x2={w}
+                    y2={axisY}
+                    stroke="rgba(232,224,208,0.18)"
+                    strokeWidth={1}
+                />
 
                 {/* ── Today marker ────────────────────────────────────────────────── */}
                 {todayX > -10 &&
                     todayX < w + 10 &&
                     (() => {
-                        const tDay = today.toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
+                        const tDay = today
+                            .toLocaleDateString("en-US", { weekday: "long" })
+                            .toLowerCase();
                         const tDate = today
-                            .toLocaleDateString("en-US", { month: "long", day: "numeric" })
+                            .toLocaleDateString("en-US", {
+                                month: "long",
+                                day: "numeric",
+                            })
                             .toLowerCase();
                         const tYear = today.getFullYear();
                         const centered = Math.abs(panMs) < 1;
-                        const todayAge = birthday ? ageAtDate(birthday, today.toISOString().slice(0, 10)) : null;
+                        const todayAge = birthday
+                            ? ageAtDate(birthday, today.toISOString().slice(0, 10))
+                            : null;
                         const lineY1 = todayAge !== null ? 68 : 54;
                         return (
                             <g
@@ -482,7 +529,8 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
                     // appears to launch from today and travel to its date position.
                     // Guard: fall back to standard if today is off-screen.
                     const todayOnScreen = todayX >= 0 && todayX <= w;
-                    const isFlying = m.id === newlyAddedId && !flyDoneIds.has(m.id) && todayOnScreen;
+                    const isFlying =
+                        m.id === newlyAddedId && !flyDoneIds.has(m.id) && todayOnScreen;
                     const flew = flyDoneIds.has(m.id);
                     const innerAnimStyle = flew
                         ? { animation: "none" }
@@ -491,7 +539,9 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
                                   ? "milestone-fly 0.65s cubic-bezier(0.34,1.56,0.64,1) both"
                                   : "milestone-appear 0.45s cubic-bezier(0.22,1,0.36,1) both",
                               animationDelay: isFlying ? "0ms" : `${i * 28}ms`,
-                              transformOrigin: isFlying ? `${todayX}px ${axisY}px` : `${x}px ${axisY}px`,
+                              transformOrigin: isFlying
+                                  ? `${todayX}px ${axisY}px`
+                                  : `${x}px ${axisY}px`,
                           };
                     // Stem fades in sync with the card but without scaling (it stays on the axis)
                     const stemAnimStyle = flew
@@ -538,7 +588,10 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
                                 <g
                                     style={innerAnimStyle}
                                     onAnimationEnd={
-                                        isFlying ? () => setFlyDoneIds((prev) => new Set([...prev, m.id])) : undefined
+                                        isFlying
+                                            ? () =>
+                                                  setFlyDoneIds((prev) => new Set([...prev, m.id]))
+                                            : undefined
                                     }
                                 >
                                     {isHL && (
@@ -562,7 +615,9 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
                                         strokeOpacity={borderOpacity}
                                         strokeWidth={borderWidth}
                                         style={{
-                                            filter: isHL ? `drop-shadow(0 0 7px ${m.color}99)` : undefined,
+                                            filter: isHL
+                                                ? `drop-shadow(0 0 7px ${m.color}99)`
+                                                : undefined,
                                         }}
                                     />
 
@@ -645,7 +700,9 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
                                                         key="camera"
                                                         transform={`translate(${ix},${iy})`}
                                                         opacity={op}
-                                                        style={{ cursor: "zoom-in" }}
+                                                        style={{
+                                                            cursor: "zoom-in",
+                                                        }}
                                                         onMouseEnter={(e) =>
                                                             setPhotoTip({
                                                                 uri: m.photo_uri,
@@ -655,7 +712,13 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
                                                         }
                                                         onMouseLeave={() => setPhotoTip(null)}
                                                     >
-                                                        <rect x={-2} y={-1} width={18} height={13} fill="transparent" />
+                                                        <rect
+                                                            x={-2}
+                                                            y={-1}
+                                                            width={18}
+                                                            height={13}
+                                                            fill="transparent"
+                                                        />
                                                         <rect
                                                             x={0}
                                                             y={2.5}
@@ -691,7 +754,12 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
                                                             fill={m.color}
                                                             opacity={0.55}
                                                         />
-                                                        <circle cx={11.8} cy={4} r={0.75} fill={m.color} />
+                                                        <circle
+                                                            cx={11.8}
+                                                            cy={4}
+                                                            r={0.75}
+                                                            fill={m.color}
+                                                        />
                                                     </g>
                                                 );
                                             if (type === "audio") {
@@ -703,13 +771,21 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
                                                         key="audio"
                                                         transform={`translate(${ix},${iy})`}
                                                         opacity={isPlaying ? 1 : op}
-                                                        style={{ cursor: "pointer" }}
+                                                        style={{
+                                                            cursor: "pointer",
+                                                        }}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             handleAudioClick(m);
                                                         }}
                                                     >
-                                                        <rect x={-2} y={-1} width={18} height={13} fill="transparent" />
+                                                        <rect
+                                                            x={-2}
+                                                            y={-1}
+                                                            width={18}
+                                                            height={13}
+                                                            fill="transparent"
+                                                        />
                                                         {/* Speaker body */}
                                                         <rect
                                                             x={0.5}
@@ -755,13 +831,21 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
                                                         key="video"
                                                         transform={`translate(${ix},${iy})`}
                                                         opacity={op}
-                                                        style={{ cursor: "pointer" }}
+                                                        style={{
+                                                            cursor: "pointer",
+                                                        }}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             onMilestoneClick(m);
                                                         }}
                                                     >
-                                                        <rect x={-2} y={-1} width={18} height={13} fill="transparent" />
+                                                        <rect
+                                                            x={-2}
+                                                            y={-1}
+                                                            width={18}
+                                                            height={13}
+                                                            fill="transparent"
+                                                        />
                                                         {/* Video camera body */}
                                                         <rect
                                                             x={0}
@@ -800,13 +884,25 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
                                                         key="link"
                                                         transform={`translate(${ix},${iy})`}
                                                         opacity={op}
-                                                        style={{ cursor: "pointer" }}
+                                                        style={{
+                                                            cursor: "pointer",
+                                                        }}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            window.open(m.url, "_blank", "noopener,noreferrer");
+                                                            window.open(
+                                                                m.url,
+                                                                "_blank",
+                                                                "noopener,noreferrer",
+                                                            );
                                                         }}
                                                     >
-                                                        <rect x={-2} y={-1} width={18} height={13} fill="transparent" />
+                                                        <rect
+                                                            x={-2}
+                                                            y={-1}
+                                                            width={18}
+                                                            height={13}
+                                                            fill="transparent"
+                                                        />
                                                         {/* chain-link: two interlocked ovals */}
                                                         <rect
                                                             x={0.5}
@@ -837,7 +933,13 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
                                                         transform={`translate(${ix},${iy})`}
                                                         opacity={op}
                                                     >
-                                                        <rect x={-2} y={-1} width={18} height={13} fill="transparent" />
+                                                        <rect
+                                                            x={-2}
+                                                            y={-1}
+                                                            width={18}
+                                                            height={13}
+                                                            fill="transparent"
+                                                        />
                                                         {/* top arc: CW from 210° to 330° (over the top), 30° gap each side */}
                                                         <path
                                                             d="M 3.0,3.5 A 4,4 0 0,1 10.0,3.5"
@@ -885,17 +987,22 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
 
                 {/* ── Cluster badges ──────────────────────────────────────────────── */}
                 {clusterGroups.map((group) => {
-                    const xs = group.map((m) => dateToX(new Date(m.date).getTime(), startMs, endMs, w));
+                    const xs = group.map((m) =>
+                        dateToX(new Date(m.date).getTime(), startMs, endMs, w),
+                    );
                     const avgX = xs.reduce((a, b) => a + b, 0) / xs.length;
                     if (avgX < -40 || avgX > w + 40) return null;
 
                     const count = group.length;
-                    const colors = [...new Map(group.map((m) => [m.color, m.color])).values()].slice(0, 5);
+                    const colors = [
+                        ...new Map(group.map((m) => [m.color, m.color])).values(),
+                    ].slice(0, 5);
                     const years = group.map((m) => new Date(m.date).getFullYear());
                     const minY = Math.min(...years);
                     const maxY = Math.max(...years);
                     const rangeLabel = minY === maxY ? String(minY) : `${minY}–${maxY}`;
-                    const clCenterMs = group.reduce((s, m) => s + new Date(m.date).getTime(), 0) / count;
+                    const clCenterMs =
+                        group.reduce((s, m) => s + new Date(m.date).getTime(), 0) / count;
 
                     const R = 11;
                     const badgeCy = axisY - R - 10;
@@ -979,7 +1086,14 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
 
                 {/* ── Edge fades ───────────────────────────────────────────────────── */}
                 <rect x={0} y={0} width={70} height={h} fill="url(#tl-left)" pointerEvents="none" />
-                <rect x={w - 70} y={0} width={70} height={h} fill="url(#tl-right)" pointerEvents="none" />
+                <rect
+                    x={w - 70}
+                    y={0}
+                    width={70}
+                    height={h}
+                    fill="url(#tl-right)"
+                    pointerEvents="none"
+                />
             </svg>
 
             {photoTip && (

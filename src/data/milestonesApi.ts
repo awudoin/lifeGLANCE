@@ -8,7 +8,10 @@ export function createMilestoneRemote(payload: ServerMilestoneInput): Promise<Se
     });
 }
 
-export function updateMilestoneRemote(id: string, payload: ServerMilestoneInput): Promise<ServerMilestone> {
+export function updateMilestoneRemote(
+    id: string,
+    payload: ServerMilestoneInput,
+): Promise<ServerMilestone> {
     return apiRequest<ServerMilestone>(`/milestones/${id}`, {
         method: "PUT",
         body: JSON.stringify(payload),
@@ -27,7 +30,9 @@ export function deleteRecurrenceRemote(recurrenceId: string): Promise<{ deletedC
     });
 }
 
-export function restoreMilestonesRemote(payload: ServerMilestoneInput[]): Promise<ServerMilestone[]> {
+export function restoreMilestonesRemote(
+    payload: ServerMilestoneInput[],
+): Promise<ServerMilestone[]> {
     return apiRequest<ServerMilestone[]>("/milestones/restore", {
         method: "POST",
         body: JSON.stringify(payload),

@@ -23,7 +23,11 @@ export default function SearchModal({ milestones, onSelect, onClose }: Props) {
     const trimmed = query.trim().toLowerCase();
     const results = trimmed
         ? milestones
-              .filter((m) => m.title.toLowerCase().includes(trimmed) || m.note?.toLowerCase().includes(trimmed))
+              .filter(
+                  (m) =>
+                      m.title.toLowerCase().includes(trimmed) ||
+                      m.note?.toLowerCase().includes(trimmed),
+              )
               .slice(0, 8)
         : [];
 
@@ -84,7 +88,10 @@ export default function SearchModal({ milestones, onSelect, onClose }: Props) {
                                 onClick={() => onSelect(m)}
                                 onMouseEnter={() => setHighlighted(i)}
                             >
-                                <div className="search-result-dot" style={{ background: m.color }} />
+                                <div
+                                    className="search-result-dot"
+                                    style={{ background: m.color }}
+                                />
                                 <div className="search-result-body">
                                     <span className="search-result-title">{m.title}</span>
                                     <span className="search-result-meta">

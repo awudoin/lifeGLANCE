@@ -1,6 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { dbPutMedia } from "../../data/db";
-import { addMilestone, deleteMilestone, restoreMilestones, uid, updateMilestone } from "../../data/milestones";
+import {
+    addMilestone,
+    deleteMilestone,
+    restoreMilestones,
+    uid,
+    updateMilestone,
+} from "../../data/milestones";
 import type {
     CategoryRecord,
     FrontendMilestone,
@@ -73,7 +79,9 @@ function applyRecurFilter(ms: FrontendMilestone[], mode: "next" | ViewMode): Fro
         const up = arr
             .filter((m) => new Date(m.date) >= now)
             .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        return up.length ? up[0] : arr.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+        return up.length
+            ? up[0]
+            : arr.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
     });
     return [...nonRec, ...picked.filter(Boolean)];
 }
@@ -87,7 +95,8 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
     const [detail, setDetail] = useState<FrontendMilestone | null>(null);
     const [textSize, setTextSize] = useState<TextSize>(() => {
         const stored = localStorage.getItem("lifeglance-text-size");
-        if (stored === "small" || stored === "normal" || stored === "big" || stored === "bigger") return stored;
+        if (stored === "small" || stored === "normal" || stored === "big" || stored === "bigger")
+            return stored;
         // First-visit default: estimate available SVG height (total minus fixed chrome)
         const hEst = window.innerHeight - 141;
         if (hEst < 240) return "small";
@@ -106,23 +115,36 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
     const [recurFilter, setRecurFilter] = useState<"next" | ViewMode>("next");
     const [categories, setCategories] = useState<CategoryRecord[]>(loadCategories);
     const [panMs, setPanMs] = useState(0);
-    const [compactHeader, setCompactHeader] = useState(() => window.matchMedia("(max-width: 1080px)").matches);
+    const [compactHeader, setCompactHeader] = useState(
+        () => window.matchMedia("(max-width: 1080px)").matches,
+    );
     const [zoomOpen, setZoomOpen] = useState(false);
-    const [compactFilter, setCompactFilter] = useState(() => window.matchMedia("(max-width: 1200px)").matches);
+    const [compactFilter, setCompactFilter] = useState(
+        () => window.matchMedia("(max-width: 1200px)").matches,
+    );
     const [filterOpen, setFilterOpen] = useState(false);
     const [compactStats, setCompactStats] = useState(
         () => window.matchMedia("(max-width: 768px), (max-height: 600px)").matches,
     );
-    const [ultraCompact, setUltraCompact] = useState(() => window.matchMedia("(max-height: 500px)").matches);
-    const [clustering, setClustering] = useState(() => localStorage.getItem("lifeglance-clustering") !== "false");
-    const [birthday, setBirthday] = useState(() => localStorage.getItem("lifeglance-birthday") || "");
+    const [ultraCompact, setUltraCompact] = useState(
+        () => window.matchMedia("(max-height: 500px)").matches,
+    );
+    const [clustering, setClustering] = useState(
+        () => localStorage.getItem("lifeglance-clustering") !== "false",
+    );
+    const [birthday, setBirthday] = useState(
+        () => localStorage.getItem("lifeglance-birthday") || "",
+    );
     const [canUndo, setCanUndo] = useState(false);
     const [canRedo, setCanRedo] = useState(false);
     const [newlyAddedId, setNewlyAddedId] = useState<string | null>(null);
     const [summaryOpen, setSummaryOpen] = useState(false);
     const [onThisDayOpen, setOnThisDayOpen] = useState(false);
     const [icsImport, setIcsImport] = useState<IcsParseResult | null>(null);
-    const [toast, setToast] = useState<{ message: string; type: string } | null>(null); // { message, type } | null
+    const [toast, setToast] = useState<{
+        message: string;
+        type: string;
+    } | null>(null); // { message, type } | null
     const [mediaConfirm, setMediaConfirm] = useState<{
         data: FrontendMilestoneSave;
         existing: FrontendMilestone | undefined;
@@ -269,13 +291,21 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
     }, []);
 
     // ── Filter ───────────────────────────────────────────────────────────────────
-    const presentCategories = categories.filter((cat) => milestones.some((m) => m.category === cat.id));
+    const presentCategories = categories.filter((cat) =>
+        milestones.some((m) => m.category === cat.id),
+    );
     const hasRecurring = milestones.some((m) => m.recurrence_id);
-    const categoryFiltered = filter === "all" ? milestones : milestones.filter((m) => m.category === filter);
+    const categoryFiltered =
+        filter === "all" ? milestones : milestones.filter((m) => m.category === filter);
     const filteredMilestones = applyRecurFilter(categoryFiltered, recurFilter);
 
     function cycleRecurFilter() {
-        setRecurFilter((f) => ({ next: "all", all: "past", past: "future", future: "next" })[f] as "next" | ViewMode);
+        setRecurFilter(
+            (f) =>
+                ({ next: "all", all: "past", past: "future", future: "next" })[f] as
+                    | "next"
+                    | ViewMode,
+        );
     }
 
     // ── "On this day" — milestones that share today's month (and day if precision allows) ──
@@ -313,7 +343,11 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
     }, [future.length]);
 
     const highlightedIds: Set<string> = highlightsActive
-        ? new Set([past[pastIdx]?.id, future[futureIdx]?.id].filter((value): value is string => Boolean(value)))
+        ? new Set(
+              [past[pastIdx]?.id, future[futureIdx]?.id].filter((value): value is string =>
+                  Boolean(value),
+              ),
+          )
         : new Set<string>();
 
     // ── Stat panel navigation (shared by buttons, keyboard, and swipe) ───────────
@@ -507,7 +541,11 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                             if (!m) return block;
                             try {
                                 const buf = await (await fetch(m[1])).arrayBuffer();
-                                const b64 = btoa([...new Uint8Array(buf)].map((b) => String.fromCharCode(b)).join(""));
+                                const b64 = btoa(
+                                    [...new Uint8Array(buf)]
+                                        .map((b) => String.fromCharCode(b))
+                                        .join(""),
+                                );
                                 return block.replace(m[0], `url('data:font/woff2;base64,${b64}')`);
                             } catch {
                                 return null;
@@ -516,7 +554,10 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                     );
                     const valid = embedded.filter(Boolean);
                     if (valid.length) {
-                        const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
+                        const style = document.createElementNS(
+                            "http://www.w3.org/2000/svg",
+                            "style",
+                        );
                         style.textContent = valid.join("\n");
                         clone.insertBefore(style, clone.firstChild);
                     }
@@ -588,7 +629,8 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
 
             const target = e.target as HTMLElement;
             // Allow Escape through even when an input is focused (to close modals)
-            if (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) && e.key !== "Escape") return;
+            if (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) && e.key !== "Escape")
+                return;
             // Blur focused buttons so keyboard shortcuts work after clicking UI elements.
             // Exception: Space on a button should still activate it (handled per-case below).
             if (target.tagName === "BUTTON" && e.key !== " " && e.key !== "Enter") {
@@ -596,7 +638,8 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
             }
             audio.init(); // unlock AudioContext on first keystroke (idempotent)
             const s = keyStateRef.current;
-            const anyModal = s.addOpen || !!s.detail || s.settingsOpen || s.helpOpen || s.searchOpen;
+            const anyModal =
+                s.addOpen || !!s.detail || s.settingsOpen || s.helpOpen || s.searchOpen;
 
             switch (e.key) {
                 case "ArrowLeft": {
@@ -626,7 +669,8 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                         // TODO: Do something logical for custom zoom (e.g. increment customYears)
                     } else {
                         const upIdx = ZOOM_LEVELS.indexOf(s.zoom);
-                        if (upIdx < ZOOM_LEVELS.length - 1) handleZoomRef.current(ZOOM_LEVELS[upIdx + 1]);
+                        if (upIdx < ZOOM_LEVELS.length - 1)
+                            handleZoomRef.current(ZOOM_LEVELS[upIdx + 1]);
                     }
                     break;
                 }
@@ -766,7 +810,10 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                     break;
                 }
                 case "Escape": {
-                    if (customInputRef.current && document.activeElement === customInputRef.current) {
+                    if (
+                        customInputRef.current &&
+                        document.activeElement === customInputRef.current
+                    ) {
                         customInputRef.current.blur();
                         break;
                     }
@@ -800,15 +847,26 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
     }
 
     // ── CRUD ─────────────────────────────────────────────────────────────────────
-    async function executeSave(data: FrontendMilestoneSave, existing: FrontendMilestone | undefined) {
+    async function executeSave(
+        data: FrontendMilestoneSave,
+        existing: FrontendMilestone | undefined,
+    ) {
         // mediaFile / mediaRemoved are transfer-only fields from the form — strip them
         // before passing to the data layer, and handle blob persistence here.
         const { mediaFile, mediaRemoved, ...milestoneData } = data;
-        const newMediaType = mediaFile ? (mediaFile.type.startsWith("video/") ? "video" : "audio") : null;
+        const newMediaType = mediaFile
+            ? mediaFile.type.startsWith("video/")
+                ? "video"
+                : "audio"
+            : null;
 
         try {
             if (existing) {
-                const mediaType = mediaFile ? newMediaType : mediaRemoved ? null : (existing.media_type ?? null);
+                const mediaType = mediaFile
+                    ? newMediaType
+                    : mediaRemoved
+                      ? null
+                      : (existing.media_type ?? null);
                 const updated = await updateMilestone(
                     existing.id,
                     { ...milestoneData, media_type: mediaType },
@@ -827,7 +885,8 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                 const endYear = Math.max(
                     baseYear,
                     Math.min(
-                        milestoneData.recurrenceEndYear ?? Math.max(baseYear, new Date().getFullYear()) + 3,
+                        milestoneData.recurrenceEndYear ??
+                            Math.max(baseYear, new Date().getFullYear()) + 3,
                         baseYear + 99,
                     ),
                 );
@@ -845,7 +904,8 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                         media_type: y === baseYear ? newMediaType : null,
                         url: y === baseYear ? milestoneData.url : "",
                     });
-                    if (y === baseYear && mediaFile) await dbPutMedia(m.id, mediaFile, mediaFile.type);
+                    if (y === baseYear && mediaFile)
+                        await dbPutMedia(m.id, mediaFile, mediaFile.type);
                     created.push(m);
                 }
                 const newMs = [...milestones, ...created];
@@ -877,7 +937,10 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
         }
     }
 
-    async function handleSave(data: FrontendMilestoneSave, existing: FrontendMilestone | undefined) {
+    async function handleSave(
+        data: FrontendMilestoneSave,
+        existing: FrontendMilestone | undefined,
+    ) {
         audio.init(); // ensure AudioContext is running (form submit = user gesture)
         const { mediaFile } = data;
 
@@ -888,7 +951,9 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                     const { quota, usage } = await navigator.storage.estimate();
                     remaining = (quota ?? 0) - (usage ?? 0);
                     if (remaining < mediaFile.size) {
-                        showToast("Not enough storage space for this file. Free up space and try again.");
+                        showToast(
+                            "Not enough storage space for this file. Free up space and try again.",
+                        );
                         return;
                     }
                 } catch {
@@ -1067,7 +1132,8 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                                         value={customYears}
                                         onChange={(e) => {
                                             const v = parseInt(e.target.value, 10);
-                                            if (!Number.isNaN(v)) setCustomYears(Math.max(1, Math.min(200, v)));
+                                            if (!Number.isNaN(v))
+                                                setCustomYears(Math.max(1, Math.min(200, v)));
                                         }}
                                     />
                                     <span>yr</span>
@@ -1077,7 +1143,13 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                                 type="button"
                                 className="zoom-tab active view-cycle-btn"
                                 onClick={() =>
-                                    handleViewMode(viewMode === "past" ? "all" : viewMode === "all" ? "future" : "past")
+                                    handleViewMode(
+                                        viewMode === "past"
+                                            ? "all"
+                                            : viewMode === "all"
+                                              ? "future"
+                                              : "past",
+                                    )
                                 }
                             >
                                 {viewMode} ↺
@@ -1127,7 +1199,10 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                                                 value={customYears}
                                                 onChange={(e) => {
                                                     const v = parseInt(e.target.value, 10);
-                                                    if (!Number.isNaN(v)) setCustomYears(Math.max(1, Math.min(200, v)));
+                                                    if (!Number.isNaN(v))
+                                                        setCustomYears(
+                                                            Math.max(1, Math.min(200, v)),
+                                                        );
                                                 }}
                                             />
                                             <span>yr</span>
@@ -1178,11 +1253,19 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
 
                 {/* Right: stats + settings + help */}
                 <div className="header-right">
-                    <button type="button" className="action-link" onClick={() => setSummaryOpen(true)}>
+                    <button
+                        type="button"
+                        className="action-link"
+                        onClick={() => setSummaryOpen(true)}
+                    >
                         stats
                     </button>
                     <span className="action-sep">|</span>
-                    <button type="button" className="action-link" onClick={() => setSettingsOpen(true)}>
+                    <button
+                        type="button"
+                        className="action-link"
+                        onClick={() => setSettingsOpen(true)}
+                    >
                         settings
                     </button>
                     <span className="action-sep">|</span>
@@ -1258,7 +1341,11 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
 
             {/* ── Bottom bar ─────────────────────────────────────────────────────── */}
             <div className="timeline-bottom">
-                <button type="button" className="add-milestone-btn" onClick={() => setAddOpen(true)}>
+                <button
+                    type="button"
+                    className="add-milestone-btn"
+                    onClick={() => setAddOpen(true)}
+                >
                     + add milestone
                 </button>
 
@@ -1286,7 +1373,9 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                                             <span
                                                 className="filter-dot"
                                                 style={{
-                                                    background: presentCategories.find((c) => c.id === filter)?.color,
+                                                    background: presentCategories.find(
+                                                        (c) => c.id === filter,
+                                                    )?.color,
                                                 }}
                                             />
                                             {presentCategories.find((c) => c.id === filter)?.label}
@@ -1308,7 +1397,12 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                                                     setFilterOpen(false);
                                                 }}
                                             >
-                                                <span className="filter-dot" style={{ background: cat.color }} />
+                                                <span
+                                                    className="filter-dot"
+                                                    style={{
+                                                        background: cat.color,
+                                                    }}
+                                                />
                                                 {cat.label}
                                             </button>
                                         ))}
@@ -1332,7 +1426,10 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                                     className={`filter-chip ${filter === cat.id ? "active" : ""}`}
                                     onClick={() => setFilter(filter === cat.id ? "all" : cat.id)}
                                 >
-                                    <span className="filter-dot" style={{ background: cat.color }} />
+                                    <span
+                                        className="filter-dot"
+                                        style={{ background: cat.color }}
+                                    />
                                     {cat.label}
                                 </button>
                             ))}
@@ -1340,7 +1437,11 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                     ))}
 
                 {onThisDayItems.length > 0 && (
-                    <button type="button" className="today-btn otd-btn" onClick={() => setOnThisDayOpen(true)}>
+                    <button
+                        type="button"
+                        className="today-btn otd-btn"
+                        onClick={() => setOnThisDayOpen(true)}
+                    >
                         on this day
                     </button>
                 )}
@@ -1376,7 +1477,9 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                 />
             )}
             {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
-            {summaryOpen && <SummaryModal milestones={milestones} onClose={() => setSummaryOpen(false)} />}
+            {summaryOpen && (
+                <SummaryModal milestones={milestones} onClose={() => setSummaryOpen(false)} />
+            )}
             {onThisDayOpen && (
                 <OnThisDayModal
                     items={onThisDayItems}
@@ -1430,12 +1533,17 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                             {mediaConfirm.remaining != null && (
                                 <>
                                     {" "}
-                                    You have <strong>{fmtBytes(mediaConfirm.remaining)}</strong> of storage remaining.
+                                    You have <strong>{fmtBytes(mediaConfirm.remaining)}</strong> of
+                                    storage remaining.
                                 </>
                             )}
                         </p>
                         <div className="media-confirm-actions">
-                            <button type="button" className="btn" onClick={() => setMediaConfirm(null)}>
+                            <button
+                                type="button"
+                                className="btn"
+                                onClick={() => setMediaConfirm(null)}
+                            >
                                 cancel
                             </button>
                             <button

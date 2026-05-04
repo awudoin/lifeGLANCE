@@ -13,7 +13,14 @@ interface Props {
     birthday?: string;
 }
 
-export default function MilestoneDetail({ milestone: m, onClose, onEdit, onDelete, onDeleteSeries, birthday }: Props) {
+export default function MilestoneDetail({
+    milestone: m,
+    onClose,
+    onEdit,
+    onDelete,
+    onDeleteSeries,
+    birthday,
+}: Props) {
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
     const [confirm, setConfirm] = useState<null | "single" | "series">(null); // null | 'single' | 'series'
     const overlayRef = useRef<HTMLDivElement>(null);
@@ -66,7 +73,9 @@ export default function MilestoneDetail({ milestone: m, onClose, onEdit, onDelet
 
                 {/* Meta */}
                 <div className="detail-meta">
-                    <div className="detail-date-raw">{formatDateDisplay(m.date, m.date_precision)}</div>
+                    <div className="detail-date-raw">
+                        {formatDateDisplay(m.date, m.date_precision)}
+                    </div>
                     <div className="detail-relative">{relativeLabel(m.date, m.date_precision)}</div>
                     {(() => {
                         const age = birthday ? ageAtDate(birthday, m.date) : null;
@@ -81,7 +90,9 @@ export default function MilestoneDetail({ milestone: m, onClose, onEdit, onDelet
                 </div>
 
                 {/* Recurrence badge */}
-                {m.recurrence === "annual" && <div className="detail-recurrence">↻ repeats annually</div>}
+                {m.recurrence === "annual" && (
+                    <div className="detail-recurrence">↻ repeats annually</div>
+                )}
 
                 {/* Media (audio / video) */}
                 {audioUrl && (
@@ -99,7 +110,12 @@ export default function MilestoneDetail({ milestone: m, onClose, onEdit, onDelet
 
                 {/* URL link */}
                 {m.url && (
-                    <a href={m.url} target="_blank" rel="noopener noreferrer" className="detail-url">
+                    <a
+                        href={m.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="detail-url"
+                    >
                         {m.url.replace(/^https?:\/\//, "").replace(/\/$/, "")}
                     </a>
                 )}
@@ -108,14 +124,19 @@ export default function MilestoneDetail({ milestone: m, onClose, onEdit, onDelet
                 {confirm ? (
                     <div className="detail-confirm">
                         <div className="detail-confirm-msg">
-                            {confirm === "series" ? `delete all instances of "${m.title}"?` : `delete "${m.title}"?`}
+                            {confirm === "series"
+                                ? `delete all instances of "${m.title}"?`
+                                : `delete "${m.title}"?`}
                         </div>
                         <div className="detail-confirm-actions">
                             <button
                                 type="button"
                                 className="btn"
                                 onClick={() => setConfirm(null)}
-                                style={{ fontSize: "0.8rem", padding: "0.45rem 0.9rem" }}
+                                style={{
+                                    fontSize: "0.8rem",
+                                    padding: "0.45rem 0.9rem",
+                                }}
                             >
                                 cancel
                             </button>
@@ -123,7 +144,10 @@ export default function MilestoneDetail({ milestone: m, onClose, onEdit, onDelet
                                 type="button"
                                 className="btn btn-danger"
                                 onClick={confirm === "series" ? doDeleteSeries : doDelete}
-                                style={{ fontSize: "0.8rem", padding: "0.45rem 0.9rem" }}
+                                style={{
+                                    fontSize: "0.8rem",
+                                    padding: "0.45rem 0.9rem",
+                                }}
                             >
                                 {confirm === "series" ? "delete all" : "delete"}
                             </button>
@@ -132,7 +156,11 @@ export default function MilestoneDetail({ milestone: m, onClose, onEdit, onDelet
                 ) : (
                     <div className="sheet-actions">
                         <div className="detail-delete-group">
-                            <button type="button" className="btn-ghost" onClick={() => setConfirm("single")}>
+                            <button
+                                type="button"
+                                className="btn-ghost"
+                                onClick={() => setConfirm("single")}
+                            >
                                 delete
                             </button>
                             {m.recurrence_id && onDeleteSeries && (
@@ -153,7 +181,10 @@ export default function MilestoneDetail({ milestone: m, onClose, onEdit, onDelet
                                     onClose();
                                     onEdit(m);
                                 }}
-                                style={{ fontSize: "0.8rem", padding: "0.45rem 0.9rem" }}
+                                style={{
+                                    fontSize: "0.8rem",
+                                    padding: "0.45rem 0.9rem",
+                                }}
                             >
                                 edit
                             </button>

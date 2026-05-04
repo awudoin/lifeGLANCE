@@ -17,7 +17,11 @@ const HALF_RANGE_MS = {
 const VIEW_ANCHOR = { all: 0.5, past: 0.88, future: 0.12 };
 
 // customHalfMs is only used when zoom === 'custom'
-export function getTimeRange(zoom: ZoomLevel, centerMs: number, customHalfMs = 0): { startMs: number; endMs: number } {
+export function getTimeRange(
+    zoom: ZoomLevel,
+    centerMs: number,
+    customHalfMs = 0,
+): { startMs: number; endMs: number } {
     const half = zoom === "custom" ? customHalfMs : HALF_RANGE_MS[zoom];
     return { startMs: centerMs - half, endMs: centerMs + half };
 }
@@ -68,9 +72,15 @@ export interface TickMark {
     major: boolean;
 }
 
-export function getTickMarks(zoom: ZoomLevel, startMs: number, endMs: number, width: number): TickMark[] {
+export function getTickMarks(
+    zoom: ZoomLevel,
+    startMs: number,
+    endMs: number,
+    width: number,
+): TickMark[] {
     // 'custom' auto-selects its visual style; '30yr' uses the same style as 'decades'
-    const style = zoom === "custom" ? autoStyle(startMs, endMs) : zoom === "30yr" ? "decades" : zoom;
+    const style =
+        zoom === "custom" ? autoStyle(startMs, endMs) : zoom === "30yr" ? "decades" : zoom;
 
     const ticks: TickMark[] = [];
     const startDate = new Date(startMs);
@@ -82,7 +92,11 @@ export function getTickMarks(zoom: ZoomLevel, startMs: number, endMs: number, wi
             const x = dateToX(new Date(y, 0, 1).getTime(), startMs, endMs, width);
             if (x < -2 || x > width + 2) continue;
             const major = y % 10 === 0;
-            ticks.push({ x, label: major ? String(y) : y % 5 === 0 ? String(y) : "", major });
+            ticks.push({
+                x,
+                label: major ? String(y) : y % 5 === 0 ? String(y) : "",
+                major,
+            });
         }
     } else if (style === "years") {
         for (let y = startDate.getFullYear(); y <= endDate.getFullYear(); y++) {
@@ -96,7 +110,9 @@ export function getTickMarks(zoom: ZoomLevel, startMs: number, endMs: number, wi
             const x = dateToX(d.getTime(), startMs, endMs, width);
             if (x >= -2 && x <= width + 2) {
                 const major = d.getMonth() === 0;
-                const label = major ? String(d.getFullYear()) : d.toLocaleString("default", { month: "short" });
+                const label = major
+                    ? String(d.getFullYear())
+                    : d.toLocaleString("default", { month: "short" });
                 ticks.push({ x, label, major });
             }
             d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
@@ -108,7 +124,12 @@ export function getTickMarks(zoom: ZoomLevel, startMs: number, endMs: number, wi
             const x = dateToX(d.getTime(), startMs, endMs, width);
             if (x >= -2 && x <= width + 2) {
                 const isFirst = d.getDate() <= 7;
-                const label = isFirst ? d.toLocaleString("default", { month: "short", year: "numeric" }) : "";
+                const label = isFirst
+                    ? d.toLocaleString("default", {
+                          month: "short",
+                          year: "numeric",
+                      })
+                    : "";
                 ticks.push({ x, label, major: isFirst });
             }
             d = new Date(d.getTime() + 7 * 24 * 3600 * 1000);
@@ -144,9 +165,14 @@ export function assignLanes(
     cardTimeSpan = 0,
     forceAbove = false,
 ): AssignedMilestone[] {
-    const sorted = [...milestones].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const sorted = [...milestones].sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+    );
 
-    const placed: { above: Array<{ ms: number; lane: number }>; below: Array<{ ms: number; lane: number }> } = {
+    const placed: {
+        above: Array<{ ms: number; lane: number }>;
+        below: Array<{ ms: number; lane: number }>;
+    } = {
         above: [],
         below: [],
     };
@@ -158,10 +184,11 @@ export function assignLanes(
 
         // Two independent seeds so lane choice and connector length don't correlate
         const laneRand = seededHash(String(m.id) + String(m.date).slice(0, 10));
-        const connRand = seededHash(String(m.id) + "~conn");
+        const connRand = seededHash(`${String(m.id)}~conn`);
 
         const hasConflict = (l: number): boolean =>
-            cardTimeSpan > 0 && placed[side].some((p) => p.lane === l && Math.abs(p.ms - mMs) < cardTimeSpan);
+            cardTimeSpan > 0 &&
+            placed[side].some((p) => p.lane === l && Math.abs(p.ms - mMs) < cardTimeSpan);
 
         // ~55% of milestones spontaneously prefer lane 1 for visual variety
         const preferLane = maxLane >= 1 && laneRand < 0.55 ? 1 : 0;

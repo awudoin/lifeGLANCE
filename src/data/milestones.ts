@@ -7,7 +7,12 @@ import {
     restoreMilestonesRemote,
     updateMilestoneRemote,
 } from "./milestonesApi";
-import type { FrontendMilestone, FrontendMilestoneInput, ServerMilestone, ServerMilestoneInput } from "./types";
+import type {
+    FrontendMilestone,
+    FrontendMilestoneInput,
+    ServerMilestone,
+    ServerMilestoneInput,
+} from "./types";
 
 export function uid(): string {
     if (typeof crypto.randomUUID === "function") {
@@ -77,7 +82,10 @@ function toServerMilestone(item: FrontendMilestone): ServerMilestoneInput {
     };
 }
 
-function mergeServerMilestone(serverItem: ServerMilestone, localItem?: FrontendMilestone): FrontendMilestone {
+function mergeServerMilestone(
+    serverItem: ServerMilestone,
+    localItem?: FrontendMilestone,
+): FrontendMilestone {
     return {
         id: serverItem.id,
         title: serverItem.title,
@@ -123,7 +131,10 @@ export async function loadMilestones(): Promise<FrontendMilestone[]> {
 
         return syncLocalCacheWithRemote(bootstrap.milestones, localItems);
     } catch (error) {
-        console.warn("Falling back to local milestone cache because backend bootstrap failed.", error);
+        console.warn(
+            "Falling back to local milestone cache because backend bootstrap failed.",
+            error,
+        );
         return localItems;
     }
 }
@@ -144,7 +155,8 @@ export async function updateMilestone(
 ): Promise<FrontendMilestone> {
     await initDB();
 
-    const nextDate = updates.date instanceof Date ? updates.date : new Date(updates.date ?? existing.date);
+    const nextDate =
+        updates.date instanceof Date ? updates.date : new Date(updates.date ?? existing.date);
     const now = new Date().toISOString();
 
     const mergedLocal: FrontendMilestone = {

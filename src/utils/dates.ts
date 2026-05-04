@@ -12,7 +12,7 @@ export function ageAtDate(birthdayStr: Date | string, targetDateStr: Date | stri
     return differenceInYears(target, born);
 }
 
-export function relativeLabel(dateStr: Date | string, precision: DatePrecision = "day"): string {
+export function relativeLabel(dateStr: Date | string, _precision: DatePrecision = "day"): string {
     const date = new Date(dateStr);
     const now = new Date();
     const past = isPast(date) && date < now;
@@ -21,7 +21,8 @@ export function relativeLabel(dateStr: Date | string, precision: DatePrecision =
         const years = differenceInYears(now, date);
         const months = differenceInMonths(now, date) % 12;
         const days = differenceInDays(now, date);
-        if (years > 0 && months > 0) return `${years} yr${years !== 1 ? "s" : ""}, ${months} mo ago`;
+        if (years > 0 && months > 0)
+            return `${years} yr${years !== 1 ? "s" : ""}, ${months} mo ago`;
         if (years > 0) return `${years} yr${years !== 1 ? "s" : ""} ago`;
         if (days > 30) return `${Math.floor(days / 30)} mo ago`;
         if (days > 0) return `${days} day${days !== 1 ? "s" : ""} ago`;
@@ -38,7 +39,10 @@ export function relativeLabel(dateStr: Date | string, precision: DatePrecision =
     }
 }
 
-export function formatDateDisplay(dateStr: Date | string, precision: DatePrecision = "day"): string {
+export function formatDateDisplay(
+    dateStr: Date | string,
+    precision: DatePrecision = "day",
+): string {
     const date = new Date(dateStr);
     if (precision === "year") return format(date, "yyyy");
     if (precision === "month") return format(date, "MMMM yyyy");
@@ -46,7 +50,12 @@ export function formatDateDisplay(dateStr: Date | string, precision: DatePrecisi
 }
 
 // Returns { years, months } elapsed/remaining for count-up animation
-export function getYearsMonths(dateStr: Date | string): { years: number; months: number; days: number; past: boolean } {
+export function getYearsMonths(dateStr: Date | string): {
+    years: number;
+    months: number;
+    days: number;
+    past: boolean;
+} {
     const date = new Date(dateStr);
     const now = new Date();
     const past = date < now;

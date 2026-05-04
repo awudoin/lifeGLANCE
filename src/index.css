@@ -1293,12 +1293,12 @@ dialog.sheet {
     align-items: center;
     gap: 0.5rem;
 }
-.detail-delete-series {
+.btn-ghost.detail-delete-series {
     font-size: 0.72rem;
-    color: #e85d75 !important;
+    color: #e85d75;
     opacity: 0.8;
 }
-.detail-delete-series:hover {
+.btn-ghost.detail-delete-series:hover {
     opacity: 1;
 }
 
@@ -1525,11 +1525,11 @@ dialog.sheet {
 }
 
 /* "on this day" bottom-bar button — amber accent to draw attention */
-.otd-btn {
-    color: var(--amber) !important;
+.today-btn.otd-btn {
+    color: var(--amber);
     opacity: 0.85;
 }
-.otd-btn:hover {
+.today-btn.otd-btn:hover {
     opacity: 1;
 }
 
