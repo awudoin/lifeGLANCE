@@ -219,9 +219,11 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
     useEffect(() => {
         const el = wrapRef.current;
         if (!el) return;
-        const obs = new ResizeObserver(([e]) =>
-            setSize({ w: e.contentRect.width, h: e.contentRect.height }),
-        );
+        const obs = new ResizeObserver((entries) => {
+            const entry = entries[0];
+            if (!entry) return;
+            setSize({ w: entry.contentRect.width, h: entry.contentRect.height });
+        });
         obs.observe(el);
         return () => obs.disconnect();
     }, []);
@@ -250,13 +252,17 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
     const groups: FrontendMilestone[][] = [];
     let gi = 0;
     while (gi < sorted.length) {
-        const group = [sorted[gi]];
-        const groupX = dateToX(new Date(sorted[gi].date).getTime(), startMs, endMs, w);
+        const first = sorted[gi];
+        if (!first) break;
+        const group: FrontendMilestone[] = [first];
+        const groupX = dateToX(new Date(first.date).getTime(), startMs, endMs, w);
         let gj = gi + 1;
         while (gj < sorted.length) {
-            const xj = dateToX(new Date(sorted[gj].date).getTime(), startMs, endMs, w);
+            const candidate = sorted[gj];
+            if (!candidate) break;
+            const xj = dateToX(new Date(candidate.date).getTime(), startMs, endMs, w);
             if (xj - groupX < CLUSTER_THRESHOLD) {
-                group.push(sorted[gj]);
+                group.push(candidate);
                 gj++;
             } else break;
         }
@@ -264,7 +270,12 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
         gi += group.length;
     }
 
-    const singles = clustering ? groups.filter((g) => g.length === 1).map((g) => g[0]) : milestones;
+    const singles = clustering
+        ? groups
+              .filter((g) => g.length === 1)
+              .map((g) => g[0])
+              .filter((milestone): milestone is FrontendMilestone => milestone !== undefined)
+        : milestones;
     const clusterGroups = clustering ? groups.filter((g) => g.length > 1) : [];
     const withLanes = assignLanes(singles, maxLane, msPerPx * CARD_W, compactLayout);
 
@@ -305,6 +316,7 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
             onMouseLeave={endDrag}
             onTouchStart={(e) => {
                 const t = e.touches[0];
+                if (!t) return;
                 touchId.current = t.identifier;
                 startDrag(t.clientX);
             }}

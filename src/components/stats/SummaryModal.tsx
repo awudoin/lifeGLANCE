@@ -39,12 +39,13 @@ export default function SummaryModal({ milestones, onClose }: SummaryModalProps)
 
         const past = deduped.filter((m) => new Date(m.date) < today).length;
         const future = deduped.filter((m) => new Date(m.date) >= today).length;
+        const firstMilestone = deduped[0];
+        const lastMilestone = deduped[deduped.length - 1];
 
         // Span from earliest to latest (deduped)
         const spanMs =
-            deduped.length > 1
-                ? new Date(deduped[deduped.length - 1].date).getTime() -
-                  new Date(deduped[0].date).getTime()
+            firstMilestone && lastMilestone && deduped.length > 1
+                ? new Date(lastMilestone.date).getTime() - new Date(firstMilestone.date).getTime()
                 : 0;
 
         // Longest gap between consecutive deduplicated milestones
@@ -52,11 +53,14 @@ export default function SummaryModal({ milestones, onClose }: SummaryModalProps)
         let gapA: FrontendMilestone | null = null;
         let gapB: FrontendMilestone | null = null;
         for (let i = 1; i < sorted.length; i++) {
-            const gap = new Date(sorted[i].date).getTime() - new Date(sorted[i - 1].date).getTime();
+            const current = sorted[i];
+            const previous = sorted[i - 1];
+            if (!current || !previous) continue;
+            const gap = new Date(current.date).getTime() - new Date(previous.date).getTime();
             if (gap > longestGap) {
                 longestGap = gap;
-                gapA = sorted[i - 1];
-                gapB = sorted[i];
+                gapA = previous;
+                gapB = current;
             }
         }
 
@@ -66,7 +70,7 @@ export default function SummaryModal({ milestones, onClose }: SummaryModalProps)
             const y = new Date(m.date).getFullYear();
             byYear[y] = (byYear[y] || 0) + 1;
         }
-        const busiestEntry = Object.entries(byYear).sort((a, b) => b[1] - a[1])[0];
+        const busiestEntry = Object.entries(byYear).sort((a, b) => b[1] - a[1])[0] ?? null;
 
         // Decade breakdown (deduped)
         const byDecade: Record<number, number> = {};

@@ -108,9 +108,18 @@ export default function MinimapBar({
             onMouseLeave={() => {
                 drag.current.active = false;
             }}
-            onTouchStart={(e) => pointerDown(e.touches[0].clientX)}
-            onTouchMove={(e) => pointerMove(e.touches[0].clientX)}
-            onTouchEnd={(e) => pointerUp(e.changedTouches[0].clientX)}
+            onTouchStart={(e) => {
+                const touch = e.touches[0];
+                if (touch) pointerDown(touch.clientX);
+            }}
+            onTouchMove={(e) => {
+                const touch = e.touches[0];
+                if (touch) pointerMove(touch.clientX);
+            }}
+            onTouchEnd={(e) => {
+                const touch = e.changedTouches[0];
+                if (touch) pointerUp(touch.clientX);
+            }}
         >
             <svg width={w} height={H} style={{ display: "block" }}>
                 <title>Minimap</title>

@@ -20,7 +20,7 @@ export function uid(): string {
     }
 
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
-        const randomValue = crypto.getRandomValues(new Uint8Array(1))[0] & 15;
+        const randomValue = (crypto.getRandomValues(new Uint8Array(1))[0] ?? 0) & 15;
         return (char === "x" ? randomValue : (randomValue & 0x3) | 0x8).toString(16);
     });
 }

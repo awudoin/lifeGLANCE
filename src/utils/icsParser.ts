@@ -102,7 +102,9 @@ function parseAllDayDate(val: string): Date | null {
     if (val.includes("T")) return null;
     const m = val.match(/^(\d{4})(\d{2})(\d{2})$/);
     if (!m) return null;
-    return new Date(+m[1], +m[2] - 1, +m[3]);
+    const [, year, month, day] = m;
+    if (!year || !month || !day) return null;
+    return new Date(+year, +month - 1, +day);
 }
 
 /**

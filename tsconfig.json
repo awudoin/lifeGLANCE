@@ -10,7 +10,7 @@
         "strict": true,
         "noImplicitOverride": true,
         "noImplicitAny": true,
-        "noUncheckedIndexedAccess": false,
+        "noUncheckedIndexedAccess": true,
         "exactOptionalPropertyTypes": false,
         "module": "ESNext",
         "moduleResolution": "Bundler",

@@ -69,11 +69,12 @@ function applyRecurFilter(ms: FrontendMilestone[], mode: "next" | ViewMode): Fro
     const byId: Record<string, FrontendMilestone[]> = {};
     for (const m of rec) {
         if (m.recurrence_id === null) continue;
-
-        if (!(m.recurrence_id in byId)) {
-            byId[m.recurrence_id] = [];
+        let group = byId[m.recurrence_id];
+        if (!group) {
+            group = [];
+            byId[m.recurrence_id] = group;
         }
-        byId[m.recurrence_id].push(m);
+        group.push(m);
     }
     const picked = Object.values(byId).map((arr) => {
         const up = arr
@@ -83,7 +84,10 @@ function applyRecurFilter(ms: FrontendMilestone[], mode: "next" | ViewMode): Fro
             ? up[0]
             : arr.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
     });
-    return [...nonRec, ...picked.filter(Boolean)];
+    return [
+        ...nonRec,
+        ...picked.filter((milestone): milestone is FrontendMilestone => milestone !== undefined),
+    ];
 }
 
 export default function TimelineView({ milestones, setMilestones }: TimelineViewProps) {
@@ -279,11 +283,13 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                 const idx = ZOOM_LEVELS.indexOf(zoomRef.current);
                 const nextIdx = e.deltaY < 0 ? idx + 1 : idx - 1;
                 if (nextIdx < 0 || nextIdx >= ZOOM_LEVELS.length) return;
+                const nextZoom = ZOOM_LEVELS[nextIdx];
+                if (!nextZoom) return;
                 zoomLocked.current = true;
                 setTimeout(() => {
                     zoomLocked.current = false;
                 }, ZOOM_ANIM_MS + 60);
-                handleZoomRef.current(ZOOM_LEVELS[nextIdx]);
+                handleZoomRef.current(nextZoom);
             }
         };
         el.addEventListener("wheel", onWheel, { passive: false });
@@ -403,7 +409,8 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
             setCustomYears((old) => (old <= 1 ? 1 : old - 1));
         } else {
             const idx = ZOOM_LEVELS.indexOf(zoom);
-            if (idx < ZOOM_LEVELS.length - 1) handleZoom(ZOOM_LEVELS[idx + 1]);
+            const nextZoom = ZOOM_LEVELS[idx + 1];
+            if (nextZoom) handleZoom(nextZoom);
         }
     }
 
@@ -454,6 +461,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
         if (!h || h.idx === 0) return;
         h.idx--;
         const snapshot = h.stack[h.idx];
+        if (!snapshot) return;
         await restoreMilestones(snapshot);
         setMilestones(snapshot);
         setCanUndo(h.idx > 0);
@@ -465,6 +473,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
         if (!h || h.idx >= h.stack.length - 1) return;
         h.idx++;
         const snapshot = h.stack[h.idx];
+        if (!snapshot) return;
         await restoreMilestones(snapshot);
         setMilestones(snapshot);
         setCanUndo(true);
@@ -538,9 +547,10 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                     const embedded = await Promise.all(
                         blocks.map(async (block) => {
                             const m = block.match(/url\((https:\/\/fonts\.gstatic\.com[^)]+)\)/);
-                            if (!m) return block;
+                            const fontUrl = m?.[1];
+                            if (!fontUrl) return block;
                             try {
-                                const buf = await (await fetch(m[1])).arrayBuffer();
+                                const buf = await (await fetch(fontUrl)).arrayBuffer();
                                 const b64 = btoa(
                                     [...new Uint8Array(buf)]
                                         .map((b) => String.fromCharCode(b))
@@ -669,8 +679,8 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                         // TODO: Do something logical for custom zoom (e.g. increment customYears)
                     } else {
                         const upIdx = ZOOM_LEVELS.indexOf(s.zoom);
-                        if (upIdx < ZOOM_LEVELS.length - 1)
-                            handleZoomRef.current(ZOOM_LEVELS[upIdx + 1]);
+                        const nextZoom = ZOOM_LEVELS[upIdx + 1];
+                        if (nextZoom) handleZoomRef.current(nextZoom);
                     }
                     break;
                 }
@@ -682,7 +692,8 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                         // TODO: Do something logical for custom zoom (e.g. decrement customYears)
                     } else {
                         const downIdx = ZOOM_LEVELS.indexOf(s.zoom);
-                        if (downIdx > 0) handleZoomRef.current(ZOOM_LEVELS[downIdx - 1]);
+                        const previousZoom = ZOOM_LEVELS[downIdx - 1];
+                        if (previousZoom) handleZoomRef.current(previousZoom);
                     }
                     break;
                 }
@@ -911,7 +922,8 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                 const newMs = [...milestones, ...created];
                 pushHistory(newMs);
                 setMilestones(newMs);
-                setNewlyAddedId(created[0].id);
+                const firstCreated = created[0];
+                if (firstCreated) setNewlyAddedId(firstCreated.id);
                 audio.playChime();
             } else {
                 const m = await addMilestone({

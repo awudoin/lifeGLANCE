@@ -122,11 +122,14 @@ export default function StatsPanel({
                             <div
                                 className="stat-panel stat-panel-popup"
                                 onTouchStart={(e) => {
-                                    pastSwipeX.current = e.touches[0].clientX;
+                                    const touch = e.touches[0];
+                                    if (touch) pastSwipeX.current = touch.clientX;
                                 }}
                                 onTouchEnd={(e) => {
                                     if (pastSwipeX.current === null || past.length <= 1) return;
-                                    const dx = e.changedTouches[0].clientX - pastSwipeX.current;
+                                    const touch = e.changedTouches[0];
+                                    if (!touch) return;
+                                    const dx = touch.clientX - pastSwipeX.current;
                                     if (dx < -SWIPE) onPastChange((pastIdx + 1) % past.length);
                                     else if (dx > SWIPE)
                                         onPastChange((pastIdx - 1 + past.length) % past.length);
@@ -162,11 +165,14 @@ export default function StatsPanel({
                             <div
                                 className="stat-panel stat-panel-right stat-panel-popup"
                                 onTouchStart={(e) => {
-                                    futureSwipeX.current = e.touches[0].clientX;
+                                    const touch = e.touches[0];
+                                    if (touch) futureSwipeX.current = touch.clientX;
                                 }}
                                 onTouchEnd={(e) => {
                                     if (futureSwipeX.current === null || future.length <= 1) return;
-                                    const dx = e.changedTouches[0].clientX - futureSwipeX.current;
+                                    const touch = e.changedTouches[0];
+                                    if (!touch) return;
+                                    const dx = touch.clientX - futureSwipeX.current;
                                     if (dx < -SWIPE)
                                         onFutureChange((futureIdx + 1) % future.length);
                                     else if (dx > SWIPE)
@@ -207,11 +213,14 @@ export default function StatsPanel({
                 <div
                     className="stat-panel"
                     onTouchStart={(e) => {
-                        pastSwipeX.current = e.touches[0].clientX;
+                        const touch = e.touches[0];
+                        if (touch) pastSwipeX.current = touch.clientX;
                     }}
                     onTouchEnd={(e) => {
                         if (pastSwipeX.current === null || past.length <= 1) return;
-                        const dx = e.changedTouches[0].clientX - pastSwipeX.current;
+                        const touch = e.changedTouches[0];
+                        if (!touch) return;
+                        const dx = touch.clientX - pastSwipeX.current;
                         // swipe left = older (higher idx); swipe right = more recent (lower idx)
                         if (dx < -SWIPE) onPastChange((pastIdx + 1) % past.length);
                         else if (dx > SWIPE)
@@ -239,11 +248,14 @@ export default function StatsPanel({
                 <div
                     className="stat-panel stat-panel-right"
                     onTouchStart={(e) => {
-                        futureSwipeX.current = e.touches[0].clientX;
+                        const touch = e.touches[0];
+                        if (touch) futureSwipeX.current = touch.clientX;
                     }}
                     onTouchEnd={(e) => {
                         if (futureSwipeX.current === null || future.length <= 1) return;
-                        const dx = e.changedTouches[0].clientX - futureSwipeX.current;
+                        const touch = e.changedTouches[0];
+                        if (!touch) return;
+                        const dx = touch.clientX - futureSwipeX.current;
                         // swipe left = further future (higher idx); swipe right = nearer (lower idx)
                         if (dx < -SWIPE) onFutureChange((futureIdx + 1) % future.length);
                         else if (dx > SWIPE)

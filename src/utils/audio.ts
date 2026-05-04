@@ -176,6 +176,7 @@ const PENTATONIC = [
 function scheduleMelody() {
     if (!ambientActive || _muted) return;
     const freq = PENTATONIC[Math.floor(Math.random() * PENTATONIC.length)];
+    if (freq === undefined) return;
     const vel = 0.035 + Math.random() * 0.025; // dynamic variation
     playPianoNote(freq, vel, 1.6);
     melodyTimer = setTimeout(scheduleMelody, 1500 + Math.random() * 3500);
