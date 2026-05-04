@@ -89,7 +89,7 @@ export function useCountUp(
             }
             const elapsed = ts - start;
             const progress = Math.min(elapsed / duration, 1);
-            const eased = 1 - Math.pow(1 - progress, 3);
+            const eased = 1 - (1 - progress) ** 3;
             setValue(Math.round(target * eased));
             if (progress < 1) {
                 rafRef.current = requestAnimationFrame(frame);

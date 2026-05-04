@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import type { FrontendMilestone, FrontendMilestoneInput } from "../../data/types";
 import { buildDateFromParts } from "../../utils/dates";
 import TypewriterText from "../ui/TypewriterText";

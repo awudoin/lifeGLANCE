@@ -59,7 +59,11 @@ function useIndexedDBEstimate() {
     return est;
 }
 
-export default function HelpModal({ onClose }) {
+interface Props {
+    onClose: () => void;
+}
+
+export default function HelpModal({ onClose }: Props) {
     const localSize = useLocalStorageSize();
     const idbEst = useIndexedDBEstimate();
     const ref = useRef<HTMLDivElement>(null);

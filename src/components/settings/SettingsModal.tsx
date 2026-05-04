@@ -26,7 +26,7 @@ const COLOR_PALETTE = [
     "#F87171",
 ];
 
-function slugify(str) {
+function slugify(str: string) {
     return str
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
@@ -89,7 +89,7 @@ export default function SettingsModal({
         setNewLabel("");
     }
 
-    function handleDelete(id) {
+    function handleDelete(id: string) {
         const updated = categories.filter((c) => c.id !== id);
         saveCategories(updated);
         onCategoriesChange(updated);

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { dbGetMedia } from "../../data/db";
 import type { FrontendMilestone } from "../../data/types";
-import { ageAtDate, formatDateDisplay, relativeLabel } from "../../utils/dates";
 import { useOutsideAlerter } from "../../hooks/useOutsideAlerter";
+import { ageAtDate, formatDateDisplay, relativeLabel } from "../../utils/dates";
 
 interface Props {
     milestone: FrontendMilestone;

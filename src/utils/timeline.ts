@@ -1,6 +1,6 @@
 import type { FrontendMilestone } from "../data/types";
 
-export const ZOOM_LEVELS = ["decades", "30yr", "years", "months", "weeks"];
+export const ZOOM_LEVELS = ["decades", "30yr", "years", "months", "weeks"] as const;
 export type ZoomLevel = (typeof ZOOM_LEVELS)[number] | "custom";
 export type ViewMode = "all" | "past" | "future";
 

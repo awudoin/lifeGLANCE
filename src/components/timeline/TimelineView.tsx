@@ -5,7 +5,13 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { dbPutMedia } from "../../data/db";
 import { addMilestone, deleteMilestone, restoreMilestones, uid, updateMilestone } from "../../data/milestones";
-import type { CategoryRecord, FrontendMilestone, FrontendMilestoneSave, IcsParseResult } from "../../data/types";
+import type {
+    CategoryRecord,
+    FrontendMilestone,
+    FrontendMilestoneSave,
+    IcsCandidate,
+    IcsParseResult,
+} from "../../data/types";
 import * as audio from "../../utils/audio";
 import { loadCategories } from "../../utils/colors";
 import { parseIcs } from "../../utils/icsParser";
@@ -69,7 +75,7 @@ function applyRecurFilter(ms: FrontendMilestone[], mode: "next" | ViewMode): Fro
 }
 
 export default function TimelineView({ milestones, setMilestones }: TimelineViewProps) {
-    const [zoom, setZoom] = useState<ZoomLevel>("years");
+    const [zoom, setZoom] = useState<ZoomLevel | "custom">("years");
     const [zoomAnim, setZoomAnim] = useState("");
     const [filter, setFilter] = useState("all");
     const [addOpen, setAddOpen] = useState(false);
@@ -123,7 +129,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
     const timelineRef = useRef<TimelineHandle | null>(null);
     const zoomWrapRef = useRef<HTMLDivElement | null>(null);
     const bodyRef = useRef<HTMLDivElement | null>(null);
-    const zoomRef = useRef<ZoomLevel>("years");
+    const zoomRef = useRef<ZoomLevel | "custom">("years");
     const zoomLocked = useRef(false);
     const customInputRef = useRef<HTMLInputElement>(null);
     const historyRef = useRef<{ stack: FrontendMilestone[][]; idx: number }>(null); // { stack: Milestone[][], idx: number }
@@ -186,7 +192,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
 
     // ── Zoom ─────────────────────────────────────────────────────────────────────
     const handleZoom = useCallback(
-        (newZoom) => {
+        (newZoom: ZoomLevel | "custom") => {
             if (newZoom === zoom) return;
             const dir = ZOOM_RANK[newZoom] > ZOOM_RANK[zoom] ? "zooming-out" : "zooming-in";
             setZoomAnim(dir);
@@ -210,17 +216,27 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
     useEffect(() => {
         const el = zoomWrapRef.current;
         if (!el) return;
-        const onWheel = (e) => {
+        const onWheel = (e: WheelEvent) => {
             e.preventDefault();
             if (zoomLocked.current) return;
-            const idx = ZOOM_LEVELS.indexOf(zoomRef.current);
-            const nextIdx = e.deltaY < 0 ? idx + 1 : idx - 1;
-            if (nextIdx < 0 || nextIdx >= ZOOM_LEVELS.length) return;
-            zoomLocked.current = true;
-            setTimeout(() => {
-                zoomLocked.current = false;
-            }, ZOOM_ANIM_MS + 60);
-            handleZoomRef.current(ZOOM_LEVELS[nextIdx]);
+            if (zoomRef.current === "custom") {
+                setCustomYears((old) => {
+                    const newYears = old + (e.deltaY > 0 ? 1 : -1);
+                    if (newYears < 1) {
+                        return 1;
+                    }
+                    return newYears;
+                });
+            } else {
+                const idx = ZOOM_LEVELS.indexOf(zoomRef.current);
+                const nextIdx = e.deltaY < 0 ? idx + 1 : idx - 1;
+                if (nextIdx < 0 || nextIdx >= ZOOM_LEVELS.length) return;
+                zoomLocked.current = true;
+                setTimeout(() => {
+                    zoomLocked.current = false;
+                }, ZOOM_ANIM_MS + 60);
+                handleZoomRef.current(ZOOM_LEVELS[nextIdx]);
+            }
         };
         el.addEventListener("wheel", onWheel, { passive: false });
         return () => el.removeEventListener("wheel", onWheel);
@@ -275,7 +291,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
         : new Set<string>();
 
     // ── Stat panel navigation (shared by buttons, keyboard, and swipe) ───────────
-    function handlePastNav(i) {
+    function handlePastNav(i: number) {
         const clamped = Math.max(0, Math.min(i, past.length - 1));
         setPastIdx(clamped);
         setSelectedId(null);
@@ -284,7 +300,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
         if (m) timelineRef.current?.panToMs(new Date(m.date).getTime());
     }
 
-    function handleFutureNav(i) {
+    function handleFutureNav(i: number) {
         const clamped = Math.max(0, Math.min(i, future.length - 1));
         setFutureIdx(clamped);
         setSelectedId(null);
@@ -321,14 +337,18 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
     }
 
     // ── Cluster click: zoom in one level and pan to cluster centre ───────────────
-    function handleClusterClick(clusterCenterMs) {
+    function handleClusterClick(clusterCenterMs: number) {
         timelineRef.current?.panToMs(clusterCenterMs);
-        const idx = ZOOM_LEVELS.indexOf(zoom);
-        if (idx < ZOOM_LEVELS.length - 1) handleZoom(ZOOM_LEVELS[idx + 1]);
+        if (zoom === "custom") {
+            setCustomYears((old) => (old <= 1 ? 1 : old - 1));
+        } else {
+            const idx = ZOOM_LEVELS.indexOf(zoom);
+            if (idx < ZOOM_LEVELS.length - 1) handleZoom(ZOOM_LEVELS[idx + 1]);
+        }
     }
 
     // ── Search select ────────────────────────────────────────────────────────────
-    function handleSearchSelect(m) {
+    function handleSearchSelect(m: FrontendMilestone) {
         setSearchOpen(false);
         setSelectedId(m.id);
         setHighlightsActive(true);
@@ -343,7 +363,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
     }
 
     // ── View mode ────────────────────────────────────────────────────────────────
-    function handleViewMode(mode) {
+    function handleViewMode(mode: ViewMode) {
         setViewMode(mode);
         setPanMs(0);
         if (timelineRef.current) timelineRef.current.resetPan();
@@ -354,7 +374,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
     // historyRef.current = { stack: Milestone[][], idx: number }
     // stack[idx] is the current state; stack[idx-1] is "one undo ago".
 
-    function pushHistory(newMs) {
+    function pushHistory(newMs: FrontendMilestone[]) {
         if (!historyRef.current) {
             // lazy init: capture the pre-mutation state as the base entry
             historyRef.current = { stack: [milestones], idx: 0 };
@@ -535,13 +555,16 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
     }, []);
 
     useEffect(() => {
-        function onKey(e) {
+        function onKey(e: KeyboardEvent) {
+            if (e.target === null) return;
+
+            const target = e.target as HTMLElement;
             // Allow Escape through even when an input is focused (to close modals)
-            if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName) && e.key !== "Escape") return;
+            if (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) && e.key !== "Escape") return;
             // Blur focused buttons so keyboard shortcuts work after clicking UI elements.
             // Exception: Space on a button should still activate it (handled per-case below).
-            if (e.target.tagName === "BUTTON" && e.key !== " " && e.key !== "Enter") {
-                e.target.blur();
+            if (target.tagName === "BUTTON" && e.key !== " " && e.key !== "Enter") {
+                target.blur();
             }
             audio.init(); // unlock AudioContext on first keystroke (idempotent)
             const s = keyStateRef.current;
@@ -566,18 +589,29 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                     }
                     break;
                 }
+                // FIXME: This is broken as s doesn't update
                 case "ArrowUp": {
                     if (anyModal) break;
                     e.preventDefault();
-                    const upIdx = ZOOM_LEVELS.indexOf(s.zoom);
-                    if (upIdx < ZOOM_LEVELS.length - 1) handleZoomRef.current(ZOOM_LEVELS[upIdx + 1]);
+                    console.log(s.zoom);
+                    if (s.zoom === "custom") {
+                        // TODO: Do something logical for custom zoom (e.g. increment customYears)
+                    } else {
+                        const upIdx = ZOOM_LEVELS.indexOf(s.zoom);
+                        if (upIdx < ZOOM_LEVELS.length - 1) handleZoomRef.current(ZOOM_LEVELS[upIdx + 1]);
+                    }
                     break;
                 }
+                // FIXME: This is broken as s doesn't update
                 case "ArrowDown": {
                     if (anyModal) break;
                     e.preventDefault();
-                    const downIdx = ZOOM_LEVELS.indexOf(s.zoom);
-                    if (downIdx > 0) handleZoomRef.current(ZOOM_LEVELS[downIdx - 1]);
+                    if (s.zoom === "custom") {
+                        // TODO: Do something logical for custom zoom (e.g. decrement customYears)
+                    } else {
+                        const downIdx = ZOOM_LEVELS.indexOf(s.zoom);
+                        if (downIdx > 0) handleZoomRef.current(ZOOM_LEVELS[downIdx - 1]);
+                    }
                     break;
                 }
                 case "t":
@@ -594,7 +628,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                 }
                 case "n":
                 case "N": {
-                    if (s.settingsOpen || !!s.detail) break;
+                    if (s.settingsOpen || s.detail) break;
                     if (!s.addOpen) {
                         e.preventDefault();
                         setAddOpen(true);
@@ -603,7 +637,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                 }
                 case "s":
                 case "S": {
-                    if (s.addOpen || !!s.detail || s.helpOpen) break;
+                    if (s.addOpen || s.detail || s.helpOpen) break;
                     if (!s.settingsOpen) setSettingsOpen(true);
                     break;
                 }
@@ -638,12 +672,12 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                 }
                 case "/": {
                     e.preventDefault(); // prevent browser Quick Find (Firefox etc.) regardless
-                    if (s.addOpen || !!s.detail || s.settingsOpen || s.helpOpen) break;
+                    if (s.addOpen || s.detail || s.settingsOpen || s.helpOpen) break;
                     if (!s.searchOpen) setSearchOpen(true);
                     break;
                 }
                 case "?": {
-                    if (s.addOpen || !!s.detail || s.settingsOpen || s.searchOpen) break;
+                    if (s.addOpen || s.detail || s.settingsOpen || s.searchOpen) break;
                     if (!s.helpOpen) setHelpOpen(true);
                     break;
                 }
@@ -670,7 +704,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                 }
                 case " ": {
                     if (anyModal) break;
-                    if (e.target.tagName === "BUTTON") break; // let Space activate focused buttons normally
+                    if (target.tagName === "BUTTON") break; // let Space activate focused buttons normally
                     e.preventDefault();
                     const next = !s.clustering;
                     s.setClustering(next);
@@ -726,7 +760,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
     }, [handleExportImage]); // stable — reads fresh values from keyStateRef
 
     // ── Helpers ──────────────────────────────────────────────────────────────────
-    function fmtBytes(n) {
+    function fmtBytes(n: number) {
         if (n < 1024 ** 2) return `${(n / 1024).toFixed(0)} KB`;
         if (n < 1024 ** 3) return `${(n / 1024 ** 2).toFixed(1)} MB`;
         return `${(n / 1024 ** 3).toFixed(1)} GB`;
@@ -889,7 +923,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
         URL.revokeObjectURL(url);
     }
 
-    async function handleImportIcsFile(file) {
+    async function handleImportIcsFile(file: File) {
         try {
             const text = await file.text();
             const result = parseIcs(text);
@@ -899,7 +933,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
         }
     }
 
-    async function handleIcsImport(selected) {
+    async function handleIcsImport(selected: IcsCandidate[]) {
         const added: FrontendMilestone[] = [];
         let failed = 0;
         for (const row of selected) {
@@ -971,7 +1005,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                                 </button>
                                 {zoomOpen && (
                                     <div className="zoom-dropdown">
-                                        {[...ZOOM_LEVELS, "custom"].map((z) => (
+                                        {([...ZOOM_LEVELS, "custom"] as const).map((z) => (
                                             <button
                                                 key={z}
                                                 type="button"
@@ -1079,11 +1113,13 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                             </div>
                             <div className="view-tabs-row">
                                 <div className="view-tabs">
-                                    {[
-                                        ["past", "← past"],
-                                        ["all", "← all →"],
-                                        ["future", "future →"],
-                                    ].map(([mode, label]) => (
+                                    {(
+                                        [
+                                            ["past", "← past"],
+                                            ["all", "← all →"],
+                                            ["future", "future →"],
+                                        ] as const
+                                    ).map(([mode, label]) => (
                                         <button
                                             key={mode}
                                             type="button"

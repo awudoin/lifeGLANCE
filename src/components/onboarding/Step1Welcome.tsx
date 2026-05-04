@@ -3,7 +3,12 @@ import { useTypewriter } from "../../utils/typewriter";
 
 const TAGLINE = "Your life, at a glance.";
 
-export default function Step1Welcome({ onBegin, onSkip }) {
+interface Props {
+    onBegin: () => void;
+    onSkip: () => void;
+}
+
+export default function Step1Welcome({ onBegin, onSkip }: Props) {
     // Phase: 'life' → 'glance' → 'tagline' → 'cta'
     const [phase, setPhase] = useState("life");
 
@@ -65,12 +70,12 @@ export default function Step1Welcome({ onBegin, onSkip }) {
                     transition: "opacity 0.4s ease, transform 0.4s ease",
                 }}
             >
-                <button type='button' className="btn" onClick={onBegin}>
+                <button type="button" className="btn" onClick={onBegin}>
                     begin →
                 </button>
             </div>
 
-            <button type='button' className="skip-link" onClick={onSkip}>
+            <button type="button" className="skip-link" onClick={onSkip}>
                 skip
             </button>
         </div>

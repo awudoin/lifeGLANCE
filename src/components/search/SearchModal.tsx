@@ -31,7 +31,7 @@ export default function SearchModal({ milestones, onSelect, onClose }: Props) {
         setHighlighted(results.length > 0 ? 0 : -1);
     }, [results]);
 
-    function handleKeyDown(e) {
+    function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
         if (e.key === "ArrowDown") {
             e.preventDefault();
             setHighlighted((i) => Math.min(i + 1, results.length - 1));

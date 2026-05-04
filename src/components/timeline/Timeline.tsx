@@ -247,13 +247,13 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
 
     // ── Pan ─────────────────────────────────────────────────────────────────────
     // startDrag reads panMsRef so it doesn't need panMs as a dep
-    const startDrag = useCallback((clientX) => {
+    const startDrag = useCallback((clientX: number) => {
         if (animRef.current) cancelAnimationFrame(animRef.current);
         drag.current = { active: true, startX: clientX, startPan: panMsRef.current };
     }, []);
 
     const moveDrag = useCallback(
-        (clientX) => {
+        (clientX: number) => {
             if (!drag.current.active) return;
             const val = drag.current.startPan - (clientX - drag.current.startX) * msPerPx;
             panMsRef.current = val;

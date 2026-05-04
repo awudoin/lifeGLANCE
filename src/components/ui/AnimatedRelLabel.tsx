@@ -1,17 +1,25 @@
 import { getYearsMonths } from "../../utils/dates";
 import { useCountUp } from "../../utils/typewriter";
 
+interface NumberProps {
+    value: number;
+}
+
 /**
  * Renders the relative-time label for a milestone with numbers that
  * count up from 0 when the component mounts.
  * Mirrors the format logic of relativeLabel() exactly.
  */
-function AnimatedNumber({ value }) {
+function AnimatedNumber({ value }: NumberProps) {
     const disp = useCountUp(value, { duration: 420, active: true });
     return <>{disp}</>;
 }
 
-export default function AnimatedRelLabel({ dateStr }) {
+interface LabelProps {
+    dateStr: string;
+}
+
+export default function AnimatedRelLabel({ dateStr }: LabelProps) {
     const { years, months, days, past } = getYearsMonths(dateStr);
 
     if (years > 0 && months > 0) {

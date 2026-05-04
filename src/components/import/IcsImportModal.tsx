@@ -1,7 +1,16 @@
 import { useRef, useState } from "react";
+import type { CategoryRecord, IcsCandidate } from "../../data/types";
 import { useOutsideAlerter } from "../../hooks/useOutsideAlerter";
 
-export default function IcsImportModal({ candidates, timedCount, categories, onImport, onClose }) {
+interface Props {
+    candidates: IcsCandidate[];
+    timedCount: number;
+    categories: CategoryRecord[];
+    onImport: (selected: IcsCandidate[]) => void;
+    onClose: () => void;
+}
+
+export default function IcsImportModal({ candidates, timedCount, categories, onImport, onClose }: Props) {
     const [rows, setRows] = useState(candidates);
     const overlayRef = useRef<HTMLDivElement>(null);
     useOutsideAlerter({ ref: overlayRef, callback: onClose });
@@ -13,11 +22,11 @@ export default function IcsImportModal({ candidates, timedCount, categories, onI
         setRows((rs) => rs.map((r) => ({ ...r, selected: !allOn })));
     }
 
-    function toggleRow(key) {
+    function toggleRow(key: number) {
         setRows((rs) => rs.map((r) => (r.key === key ? { ...r, selected: !r.selected } : r)));
     }
 
-    function setCategory(key, cat) {
+    function setCategory(key: number, cat: string) {
         setRows((rs) => rs.map((r) => (r.key === key ? { ...r, category: cat } : r)));
     }
 

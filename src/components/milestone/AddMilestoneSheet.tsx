@@ -86,7 +86,7 @@ export default function AddMilestoneSheet({ onSave, onClose, existing, categorie
 
     const canSave = title.trim() && year.length >= 4;
 
-    async function handleSubmit(e) {
+    async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
         e.preventDefault();
         if (!canSave || busy) return;
         setBusy(true);

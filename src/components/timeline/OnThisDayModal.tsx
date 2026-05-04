@@ -1,8 +1,15 @@
 import { useRef } from "react";
-import { formatDateDisplay } from "../../utils/dates";
+import type { FrontendMilestone } from "../../data/types";
 import { useOutsideAlerter } from "../../hooks/useOutsideAlerter";
+import { formatDateDisplay } from "../../utils/dates";
 
-export default function OnThisDayModal({ items, onClose, onSelect }) {
+interface Props {
+    items: FrontendMilestone[];
+    onClose: () => void;
+    onSelect: (item: FrontendMilestone) => void;
+}
+
+export default function OnThisDayModal({ items, onClose, onSelect }: Props) {
     const overlayRef = useRef<HTMLDivElement>(null);
     useOutsideAlerter({ ref: overlayRef, callback: onClose });
 
@@ -24,7 +31,7 @@ export default function OnThisDayModal({ items, onClose, onSelect }) {
                     {items.map((m) => {
                         const yearsAgo = todayYear - new Date(m.date).getFullYear();
                         return (
-                            <button type='button' key={m.id} className="otd-item" onClick={() => onSelect(m)}>
+                            <button type="button" key={m.id} className="otd-item" onClick={() => onSelect(m)}>
                                 <div className="otd-dot" style={{ background: m.color }} />
                                 <div className="otd-content">
                                     <div className="otd-title">{m.title}</div>
