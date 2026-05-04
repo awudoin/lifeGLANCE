@@ -1,3 +1,5 @@
+import { readCachedSound, writeCachedSound } from "../data/browserStorage";
+
 /**
  * Minimal Web Audio synthesis for lifeGLANCE.
  * AudioContext is created lazily on the first user gesture (call init()).
@@ -14,7 +16,7 @@ let ctx: AudioContext | null = null;
 let ambientNodes: AmbientNode[] = [];
 let ambientActive = false;
 let melodyTimer: number | null = null;
-let _muted = localStorage.getItem("lifeglance-sound") === "off";
+let _muted = readCachedSound() === "off";
 
 // ── Context ───────────────────────────────────────────────────────────────────
 
@@ -46,7 +48,7 @@ export function isMuted() {
 }
 export function setMuted(val: boolean): void {
     _muted = !!val;
-    localStorage.setItem("lifeglance-sound", _muted ? "off" : "on");
+    writeCachedSound(!_muted);
     if (_muted) _fadeOutAmbient();
 }
 export function toggleMuted() {

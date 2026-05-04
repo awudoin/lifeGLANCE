@@ -1,8 +1,16 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { fetchBackupBundle, restoreBackupBundle } from "../../data/backupApi";
 import { fetchBootstrap } from "../../data/bootstrapApi";
+import {
+    readCachedBirthday,
+    readCachedClustering,
+    readCachedTextSize,
+    writeCachedBirthday,
+    writeCachedClustering,
+    writeCachedTextSize,
+} from "../../data/browserStorage";
 import { replaceCategoriesRemote } from "../../data/categoriesApi";
-import { dbPut } from "../../data/db";
+import { syncMilestoneCacheRecord } from "../../data/db";
 import { deleteMediaFile, getMediaUrl, uploadMediaFile } from "../../data/mediaApi";
 import {
     addMilestone,
@@ -137,7 +145,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
     const [editTarget, setEditTarget] = useState<FrontendMilestone | null>(null);
     const [detail, setDetail] = useState<FrontendMilestone | null>(null);
     const [textSize, setTextSize] = useState<TextSize>(() => {
-        const stored = localStorage.getItem("lifeglance-text-size");
+        const stored = readCachedTextSize();
         if (stored === "small" || stored === "normal" || stored === "big" || stored === "bigger")
             return stored;
         // First-visit default: estimate available SVG height (total minus fixed chrome)
@@ -172,12 +180,8 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
     const [ultraCompact, setUltraCompact] = useState(
         () => window.matchMedia("(max-height: 500px)").matches,
     );
-    const [clustering, setClustering] = useState(
-        () => localStorage.getItem("lifeglance-clustering") !== "false",
-    );
-    const [birthday, setBirthday] = useState(
-        () => localStorage.getItem("lifeglance-birthday") || "",
-    );
+    const [clustering, setClustering] = useState(() => readCachedClustering() !== "false");
+    const [birthday, setBirthday] = useState(() => readCachedBirthday());
     const [soundOn, setSoundOn] = useState(() => !audio.isMuted());
     const [canUndo, setCanUndo] = useState(false);
     const [canRedo, setCanRedo] = useState(false);
@@ -224,7 +228,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
     // Apply font size globally
     useEffect(() => {
         document.documentElement.style.fontSize = TEXT_SIZES[textSize];
-        localStorage.setItem("lifeglance-text-size", textSize);
+        writeCachedTextSize(textSize);
     }, [textSize]);
 
     useEffect(() => {
@@ -835,7 +839,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                     e.preventDefault();
                     const next = !s.clustering;
                     s.setClustering(next);
-                    localStorage.setItem("lifeglance-clustering", String(next));
+                    writeCachedClustering(next);
                     break;
                 }
                 case "m":
@@ -917,9 +921,9 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
     const applySettingsSnapshot = useCallback((snapshot: SettingsSnapshot): void => {
         setTextSize(snapshot.textSize);
         setClustering(snapshot.clustering);
-        localStorage.setItem("lifeglance-clustering", String(snapshot.clustering));
+        writeCachedClustering(snapshot.clustering);
         setBirthday(snapshot.birthday);
-        localStorage.setItem("lifeglance-birthday", snapshot.birthday);
+        writeCachedBirthday(snapshot.birthday);
         setSoundOn(snapshot.soundOn);
         audio.setMuted(!snapshot.soundOn);
     }, []);
@@ -1155,7 +1159,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                     };
                 }
 
-                await dbPut(next);
+                await syncMilestoneCacheRecord(next);
                 return next;
             };
 

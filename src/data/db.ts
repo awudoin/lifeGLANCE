@@ -176,3 +176,10 @@ export function dbClearAllMedia(): Promise<void> {
         request.onerror = () => reject(request.error);
     });
 }
+
+export async function syncMilestoneCacheRecord(
+    item: FrontendMilestone,
+): Promise<FrontendMilestone> {
+    await initDB();
+    return dbPut(item);
+}

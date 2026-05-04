@@ -1,3 +1,4 @@
+import { loadCachedCategories, saveCachedCategories } from "../data/browserStorage";
 import type { CategoryRecord } from "../data/types";
 
 export const DEFAULT_CATEGORIES: CategoryRecord[] = [
@@ -19,16 +20,10 @@ export function categoryColor(category: string): string {
     return CATEGORY_COLOR[category] ?? "#C8A96E";
 }
 
-const CAT_KEY = "lifeglance-categories";
-
 export function loadCategories(): CategoryRecord[] {
-    try {
-        const raw = localStorage.getItem(CAT_KEY);
-        if (raw) return JSON.parse(raw) as CategoryRecord[];
-    } catch {}
-    return DEFAULT_CATEGORIES;
+    return loadCachedCategories(DEFAULT_CATEGORIES);
 }
 
 export function saveCategories(cats: CategoryRecord[]): void {
-    localStorage.setItem(CAT_KEY, JSON.stringify(cats));
+    saveCachedCategories(cats);
 }

@@ -1,4 +1,14 @@
 import { loadCategories } from "../utils/colors";
+import {
+    clearLocalMigrationPromptDismissal as clearPromptDismissalCache,
+    dismissLocalMigrationPrompt as dismissPromptCache,
+    hasCachedCategories,
+    isLocalMigrationPromptDismissed as isPromptDismissedInCache,
+    readCachedBirthday,
+    readCachedClustering,
+    readCachedSound,
+    readCachedTextSize,
+} from "./browserStorage";
 import { dbGetAll, dbGetAllMedia, initDB } from "./db";
 import type {
     FrontendMilestone,
@@ -8,8 +18,6 @@ import type {
     ServerMilestoneInput,
     SettingRecord,
 } from "./types";
-
-const MIGRATION_DISMISS_KEY = "lifeglance-local-import-dismissed";
 
 function toServerMilestone(item: FrontendMilestone): ServerMilestoneInput {
     return {
@@ -53,31 +61,31 @@ function inferMediaKind(mimeType: string, fallback: MediaKind = "audio"): MediaK
 function loadLocalSettings(): SettingRecord[] {
     const settings: SettingRecord[] = [];
 
-    const textSize = localStorage.getItem("lifeglance-text-size");
+    const textSize = readCachedTextSize();
     if (textSize) settings.push({ key: "lifeglance-text-size", value: textSize });
 
-    const clustering = localStorage.getItem("lifeglance-clustering");
+    const clustering = readCachedClustering();
     if (clustering) settings.push({ key: "lifeglance-clustering", value: clustering });
 
-    const birthday = localStorage.getItem("lifeglance-birthday");
+    const birthday = readCachedBirthday();
     if (birthday) settings.push({ key: "lifeglance-birthday", value: birthday });
 
-    const sound = localStorage.getItem("lifeglance-sound");
+    const sound = readCachedSound();
     if (sound) settings.push({ key: "lifeglance-sound", value: sound });
 
     return settings;
 }
 
 export function dismissLocalMigrationPrompt(): void {
-    localStorage.setItem(MIGRATION_DISMISS_KEY, "true");
+    dismissPromptCache();
 }
 
 export function clearLocalMigrationPromptDismissal(): void {
-    localStorage.removeItem(MIGRATION_DISMISS_KEY);
+    clearPromptDismissalCache();
 }
 
 export function isLocalMigrationPromptDismissed(): boolean {
-    return localStorage.getItem(MIGRATION_DISMISS_KEY) === "true";
+    return isPromptDismissedInCache();
 }
 
 export async function collectLocalMigrationBundle(): Promise<{
@@ -139,7 +147,7 @@ export async function collectLocalMigrationBundle(): Promise<{
         bundle.milestones.length > 0 ||
         bundle.mediaFiles.length > 0 ||
         settings.length > 0 ||
-        localStorage.getItem("lifeglance-categories") !== null;
+        hasCachedCategories();
 
     return { bundle, hasData };
 }

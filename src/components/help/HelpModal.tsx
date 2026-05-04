@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { estimateLocalStorageBytes } from "../../data/browserStorage";
 import { useOverlayClick } from "../../hooks/useOverlayClick";
 
 const VERSION = "1.0.2";
@@ -31,18 +32,9 @@ function fmtBytes(n?: number | null) {
     return `${(n / 1024 ** 3).toFixed(2)} GB`;
 }
 
-// localStorage — synchronous, just settings/prefs (a few KB)
 function useLocalStorageSize() {
     return useMemo(() => {
-        try {
-            const bytes = Object.keys(localStorage).reduce(
-                (sum, k) => sum + (localStorage.getItem(k)?.length ?? 0) * 2,
-                0,
-            );
-            return fmtBytes(bytes);
-        } catch {
-            return "—";
-        }
+        return fmtBytes(estimateLocalStorageBytes());
     }, []);
 }
 

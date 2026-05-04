@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import Onboarding from "./components/onboarding/Onboarding";
 import TimelineView from "./components/timeline/TimelineView";
 import { fetchBootstrap } from "./data/bootstrapApi";
-import { initDB } from "./data/db";
 import {
     clearLocalMigrationPromptDismissal,
     collectLocalMigrationBundle,
@@ -29,11 +28,9 @@ export default function App() {
     }, []);
 
     useEffect(() => {
-        initDB()
-            .then(() => {
-                navigator.storage?.persist?.();
-                return loadMilestones();
-            })
+        navigator.storage?.persist?.();
+
+        loadMilestones()
             .then((all) => {
                 setMilestones(all);
                 setScreen(all.length === 0 ? "onboarding" : "timeline");
