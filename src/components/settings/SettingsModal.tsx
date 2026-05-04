@@ -24,7 +24,8 @@ const COLOR_PALETTE = [
     "#F472B6",
     "#E879F9",
     "#F87171",
-];
+] as const;
+type ColorPaletteType = typeof COLOR_PALETTE[number]
 
 function slugify(str: string) {
     return str
@@ -69,7 +70,7 @@ export default function SettingsModal({
     ultraCompact = false,
 }: Props) {
     const [newLabel, setNewLabel] = useState("");
-    const [newColor, setNewColor] = useState(COLOR_PALETTE[0]);
+    const [newColor, setNewColor] = useState<ColorPaletteType>(COLOR_PALETTE[0]);
     const [soundOn, setSoundOn] = useState(() => !isMuted());
     const fileRef = useRef<HTMLInputElement>(null);
     const icsFileRef = useRef<HTMLInputElement>(null);

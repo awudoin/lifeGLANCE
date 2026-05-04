@@ -16,7 +16,7 @@ function AnimatedNumber({ value }: NumberProps) {
 }
 
 interface LabelProps {
-    dateStr: string;
+    dateStr: string | Date;
 }
 
 export default function AnimatedRelLabel({ dateStr }: LabelProps) {
