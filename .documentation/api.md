@@ -3,7 +3,7 @@
 | Endpoint | Method | Arguments | Returns | Comments |
 |----------|--------|-----------|---------|----------|
 | `/api/health` | GET | None | `{ ok: true }` | Health check |
-| `/api/bootstrap` | GET | None | `{ milestones, categories, settings }` | Reduces frontend startup round-trips by sending all data |
+| `/api/bootstrap` | GET | None | `{ milestones, categories, settings, mediaFiles }` | Reduces frontend startup round-trips by sending all data |
 | `/api/milestones` | GET | None | `Milestone[]` | Returns milestones ordered by date |
 | `/api/milestones` | POST | Milestone body | `Milestone` | Creates milestone and generates ID on the server |
 | `/api/milestones/:id` | PUT | Milestone body | `Milestone` | Updates milestone |
@@ -41,3 +41,14 @@
 ### Setting
 - `key: string`
 - `value: string`
+
+### MediaFile
+- `id: string`
+- `milestoneId: string`
+- `kind: string`
+- `originalName: string`
+- `mimeType: string`
+- `sizeBytes: number`
+- `storagePath: string`
+- `sha256: string`
+- `createdAt: string`

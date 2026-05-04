@@ -1,6 +1,7 @@
 export const DatePrecisions = ["day", "month", "year"] as const;
 export type DatePrecision = (typeof DatePrecisions)[number];
 export type MediaType = "audio" | "video" | null;
+export type MediaKind = "image" | "audio" | "video";
 
 export interface FrontendMilestone {
     id: string;
@@ -12,7 +13,9 @@ export interface FrontendMilestone {
     color: string;
     note: string;
     photo_uri: string;
+    photo_media_id?: string | null;
     media_type: MediaType;
+    media_file_id?: string | null;
     url: string;
     recurrence: string | null;
     recurrence_id: string | null;
@@ -29,7 +32,9 @@ export interface FrontendMilestoneInput {
     color?: string;
     note?: string;
     photo_uri?: string;
+    photo_media_id?: string | null;
     media_type?: MediaType;
+    media_file_id?: string | null;
     url?: string;
     recurrence?: string | null;
     recurrence_id?: string | null;
@@ -38,6 +43,8 @@ export interface FrontendMilestoneInput {
 }
 
 export type FrontendMilestoneSave = FrontendMilestoneInput & {
+    photoFile: File | null;
+    photoRemoved: boolean;
     mediaFile: File | null;
     mediaRemoved: boolean;
     recurrenceEndYear?: number;
@@ -109,4 +116,17 @@ export interface BootstrapResponse {
     milestones: ServerMilestone[];
     categories: CategoryRecord[];
     settings: SettingRecord[];
+    mediaFiles: MediaFileRecord[];
+}
+
+export interface MediaFileRecord {
+    id: string;
+    milestoneId: string;
+    kind: MediaKind;
+    originalName: string;
+    mimeType: string;
+    sizeBytes: number;
+    storagePath: string;
+    sha256: string;
+    createdAt: string;
 }

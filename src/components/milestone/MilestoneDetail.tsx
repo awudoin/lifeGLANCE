@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { dbGetMedia } from "../../data/db";
+import { getMediaUrl } from "../../data/mediaApi";
 import type { FrontendMilestone } from "../../data/types";
 import { useOverlayClick } from "../../hooks/useOverlayClick";
 import { ageAtDate, formatDateDisplay, relativeLabel } from "../../utils/dates";
@@ -27,17 +27,13 @@ export default function MilestoneDetail({
     useOverlayClick({ ref: overlayRef, callback: onClose });
 
     useEffect(() => {
-        if (!m.media_type) return;
-        let objectUrl: string | null = null;
-        dbGetMedia(m.id).then((result) => {
-            if (!result) return;
-            objectUrl = URL.createObjectURL(result.blob);
-            setAudioUrl(objectUrl);
-        });
-        return () => {
-            if (objectUrl) URL.revokeObjectURL(objectUrl);
-        };
-    }, [m.id, m.media_type]);
+        if (!m.media_type || !m.media_file_id) {
+            setAudioUrl(null);
+            return;
+        }
+
+        setAudioUrl(getMediaUrl(m.media_file_id));
+    }, [m.media_file_id, m.media_type]);
 
     function doDelete() {
         onDelete(m.id);

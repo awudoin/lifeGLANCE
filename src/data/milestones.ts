@@ -1,6 +1,7 @@
 import { categoryColor } from "../utils/colors";
 import { fetchBootstrap } from "./bootstrapApi";
-import { dbClearAllMedia, dbDelete, dbGetAll, dbPut, dbReplaceAllMilestones, initDB } from "./db";
+import { dbDelete, dbGetAll, dbPut, dbReplaceAllMilestones, initDB } from "./db";
+import { getMediaUrl } from "./mediaApi";
 import {
     createMilestoneRemote,
     deleteMilestoneRemote,
@@ -10,6 +11,7 @@ import {
 import type {
     FrontendMilestone,
     FrontendMilestoneInput,
+    MediaFileRecord,
     ServerMilestone,
     ServerMilestoneInput,
 } from "./types";
@@ -34,7 +36,9 @@ export function buildMilestone({
     color,
     note = "",
     photo_uri = "",
+    photo_media_id = null,
     media_type = null,
+    media_file_id = null,
     url = "",
     recurrence = null,
     recurrence_id = null,
@@ -55,7 +59,9 @@ export function buildMilestone({
         color: color || categoryColor(category),
         note,
         photo_uri,
+        photo_media_id,
         media_type,
+        media_file_id,
         url,
         recurrence,
         recurrence_id,
@@ -84,8 +90,11 @@ function toServerMilestone(item: FrontendMilestone): ServerMilestoneInput {
 
 function mergeServerMilestone(
     serverItem: ServerMilestone,
-    localItem?: FrontendMilestone,
+    mediaFiles: MediaFileRecord[],
 ): FrontendMilestone {
+    const photo = mediaFiles.find((item) => item.kind === "image") ?? null;
+    const media = mediaFiles.find((item) => item.kind === "audio" || item.kind === "video") ?? null;
+
     return {
         id: serverItem.id,
         title: serverItem.title,
@@ -95,8 +104,10 @@ function mergeServerMilestone(
         category: serverItem.categoryId,
         color: serverItem.color,
         note: serverItem.note,
-        photo_uri: localItem?.photo_uri ?? "",
-        media_type: localItem?.media_type ?? null,
+        photo_uri: photo ? getMediaUrl(photo.id) : "",
+        photo_media_id: photo?.id ?? null,
+        media_type: media && (media.kind === "audio" || media.kind === "video") ? media.kind : null,
+        media_file_id: media?.id ?? null,
         url: serverItem.url,
         recurrence: serverItem.recurrence,
         recurrence_id: serverItem.recurrenceId,
@@ -107,10 +118,21 @@ function mergeServerMilestone(
 
 async function syncLocalCacheWithRemote(
     remoteItems: ServerMilestone[],
-    localItems: FrontendMilestone[],
+    mediaFiles: MediaFileRecord[],
 ): Promise<FrontendMilestone[]> {
-    const localById = new Map(localItems.map((item) => [item.id, item]));
-    const merged = remoteItems.map((item) => mergeServerMilestone(item, localById.get(item.id)));
+    const mediaByMilestone = new Map<string, MediaFileRecord[]>();
+    for (const item of mediaFiles) {
+        const group = mediaByMilestone.get(item.milestoneId);
+        if (group) {
+            group.push(item);
+        } else {
+            mediaByMilestone.set(item.milestoneId, [item]);
+        }
+    }
+
+    const merged = remoteItems.map((item) =>
+        mergeServerMilestone(item, mediaByMilestone.get(item.id) ?? []),
+    );
     await dbReplaceAllMilestones(merged);
     return merged;
 }
@@ -129,7 +151,7 @@ export async function loadMilestones(): Promise<FrontendMilestone[]> {
             return localItems;
         }
 
-        return syncLocalCacheWithRemote(bootstrap.milestones, localItems);
+        return syncLocalCacheWithRemote(bootstrap.milestones, bootstrap.mediaFiles);
     } catch (error) {
         console.warn(
             "Falling back to local milestone cache because backend bootstrap failed.",
@@ -143,7 +165,13 @@ export async function addMilestone(data: FrontendMilestoneInput): Promise<Fronte
     await initDB();
     const localMilestone = buildMilestone(data);
     const remoteMilestone = await createMilestoneRemote(toServerMilestone(localMilestone));
-    const merged = mergeServerMilestone(remoteMilestone, localMilestone);
+    const merged = {
+        ...mergeServerMilestone(remoteMilestone, []),
+        photo_uri: localMilestone.photo_uri,
+        photo_media_id: localMilestone.photo_media_id ?? null,
+        media_type: localMilestone.media_type,
+        media_file_id: localMilestone.media_file_id ?? null,
+    };
     await dbPut(merged);
     return merged;
 }
@@ -180,7 +208,13 @@ export async function updateMilestone(
     };
 
     const remoteMilestone = await updateMilestoneRemote(id, toServerMilestone(mergedLocal));
-    const merged = mergeServerMilestone(remoteMilestone, mergedLocal);
+    const merged = {
+        ...mergeServerMilestone(remoteMilestone, []),
+        photo_uri: mergedLocal.photo_uri,
+        photo_media_id: mergedLocal.photo_media_id ?? null,
+        media_type: mergedLocal.media_type,
+        media_file_id: mergedLocal.media_file_id ?? null,
+    };
     await dbPut(merged);
     return merged;
 }
@@ -195,10 +229,12 @@ export async function restoreMilestones(items: FrontendMilestone[]): Promise<Fro
     await initDB();
     const localItems = items.map((item) => ({
         ...item,
+        photo_uri: "",
+        photo_media_id: null,
         media_type: null,
+        media_file_id: null,
     }));
 
     const remoteItems = await restoreMilestonesRemote(localItems.map(toServerMilestone));
-    await dbClearAllMedia();
-    return syncLocalCacheWithRemote(remoteItems, localItems);
+    return syncLocalCacheWithRemote(remoteItems, []);
 }

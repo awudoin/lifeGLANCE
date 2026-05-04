@@ -9,13 +9,20 @@ function resolveApiBase(): string {
 
 const API_BASE = resolveApiBase();
 
+export function apiUrl(path: string): string {
+    return `${API_BASE}${path}`;
+}
+
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
-    const response = await fetch(`${API_BASE}${path}`, {
-        headers: {
-            "Content-Type": "application/json",
-            ...(init?.headers ?? {}),
-        },
+    const isFormData = init?.body instanceof FormData;
+    const headers = new Headers(init?.headers);
+    if (!isFormData && !headers.has("Content-Type")) {
+        headers.set("Content-Type", "application/json");
+    }
+
+    const response = await fetch(apiUrl(path), {
         ...init,
+        headers,
     });
 
     if (!response.ok) {

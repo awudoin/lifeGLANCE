@@ -2,6 +2,7 @@ export interface BootstrapResponse {
     milestones: MilestoneDto[];
     categories: CategoryDto[];
     settings: SettingDto[];
+    mediaFiles: MediaFileDto[];
 }
 
 export interface MilestoneDto {

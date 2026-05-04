@@ -48,6 +48,8 @@ export default function AddMilestoneSheet({
     const [note, setNote] = useState(existing?.note ?? "");
     const [url, setUrl] = useState(existing?.url ?? "");
     const [photoUri, setPhotoUri] = useState(existing?.photo_uri ?? "");
+    const [photoFile, setPhotoFile] = useState<File | null>(null);
+    const [photoRemoved, setPhotoRemoved] = useState(false);
     const [mediaFile, setMediaFile] = useState<File | null>(null); // new File selected this session
     const [mediaRemoved, setMediaRemoved] = useState(false); // user cleared existing media
     const [mediaObjectUrl, setMediaObjectUrl] = useState<string | null>(null); // transient preview URL
@@ -68,8 +70,9 @@ export default function AddMilestoneSheet({
     useEffect(() => {
         return () => {
             if (mediaObjectUrl) URL.revokeObjectURL(mediaObjectUrl);
+            if (photoFile && photoUri.startsWith("blob:")) URL.revokeObjectURL(photoUri);
         };
-    }, [mediaObjectUrl]);
+    }, [mediaObjectUrl, photoFile, photoUri]);
 
     // Pre-fill date from existing
     useEffect(() => {
@@ -117,6 +120,8 @@ export default function AddMilestoneSheet({
                     category,
                     note: note.trim(),
                     photo_uri: photoUri,
+                    photoFile,
+                    photoRemoved,
                     mediaFile,
                     mediaRemoved,
                     url: url.trim(),
@@ -305,6 +310,8 @@ export default function AddMilestoneSheet({
                                 type="button"
                                 className="photo-remove"
                                 onClick={() => {
+                                    setPhotoFile(null);
+                                    setPhotoRemoved(true);
                                     setPhotoUri("");
                                     if (photoRef.current) photoRef.current.value = "";
                                 }}
@@ -335,9 +342,11 @@ export default function AddMilestoneSheet({
                             if (e.target.files && e.target.files.length > 0) {
                                 const file = e.target.files[0];
                                 if (!file) return;
-                                const reader = new FileReader();
-                                reader.onload = () => setPhotoUri(reader.result?.toString() ?? "");
-                                reader.readAsDataURL(file);
+                                if (photoUri.startsWith("blob:")) URL.revokeObjectURL(photoUri);
+                                setPhotoFile(file);
+                                setPhotoRemoved(false);
+                                const objectUrl = URL.createObjectURL(file);
+                                setPhotoUri(objectUrl);
                             }
                         }}
                     />

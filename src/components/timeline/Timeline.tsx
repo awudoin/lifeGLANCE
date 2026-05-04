@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { dbGetMedia } from "../../data/db";
+import { getMediaUrl } from "../../data/mediaApi";
 import type { FrontendMilestone } from "../../data/types";
 import { ageAtDate, formatDateDisplay, relativeLabel } from "../../utils/dates";
 import type { ViewMode, ZoomLevel } from "../../utils/timeline";
@@ -198,21 +198,17 @@ const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(
                 return;
             }
         }
-        // Fetch blob lazily and play via a transient object URL
-        dbGetMedia(m.id).then((result) => {
-            if (!result) return;
-            const url = URL.createObjectURL(result.blob);
-            const a = new Audio(url);
-            a._objectUrl = url;
-            audioElRef.current = a;
-            setPlayingId(m.id);
-            a.play().catch(() => {});
-            a.onended = () => {
-                URL.revokeObjectURL(url);
-                audioElRef.current = null;
-                setPlayingId(null);
-            };
-        });
+        if (!m.media_file_id) return;
+
+        const url = getMediaUrl(m.media_file_id);
+        const a = new Audio(url);
+        audioElRef.current = a;
+        setPlayingId(m.id);
+        a.play().catch(() => {});
+        a.onended = () => {
+            audioElRef.current = null;
+            setPlayingId(null);
+        };
     }
 
     // Measure container

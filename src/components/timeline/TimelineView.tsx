@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { dbPutMedia } from "../../data/db";
+import { dbPut } from "../../data/db";
+import { deleteMediaFile, getMediaUrl, uploadMediaFile } from "../../data/mediaApi";
 import {
     addMilestone,
     deleteMilestone,
@@ -862,9 +863,16 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
         data: FrontendMilestoneSave,
         existing: FrontendMilestone | undefined,
     ) {
-        // mediaFile / mediaRemoved are transfer-only fields from the form — strip them
-        // before passing to the data layer, and handle blob persistence here.
-        const { mediaFile, mediaRemoved, ...milestoneData } = data;
+        const {
+            photoFile,
+            photoRemoved,
+            mediaFile,
+            mediaRemoved,
+            photo_uri: _photoUri,
+            photo_media_id: _photoMediaId,
+            media_file_id: _mediaFileId,
+            ...milestoneData
+        } = data;
         const newMediaType = mediaFile
             ? mediaFile.type.startsWith("video/")
                 ? "video"
@@ -872,6 +880,62 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
             : null;
 
         try {
+            const syncMilestoneMedia = async (
+                milestone: FrontendMilestone,
+                options: {
+                    photoFile: File | null;
+                    photoRemoved: boolean;
+                    mediaFile: File | null;
+                    mediaRemoved: boolean;
+                },
+            ): Promise<FrontendMilestone> => {
+                let next = milestone;
+
+                if ((options.photoFile || options.photoRemoved) && next.photo_media_id) {
+                    await deleteMediaFile(next.photo_media_id);
+                    next = {
+                        ...next,
+                        photo_uri: "",
+                        photo_media_id: null,
+                    };
+                }
+
+                if (options.photoFile) {
+                    const uploadedPhoto = await uploadMediaFile(
+                        next.id,
+                        "image",
+                        options.photoFile,
+                    );
+                    next = {
+                        ...next,
+                        photo_uri: getMediaUrl(uploadedPhoto.id),
+                        photo_media_id: uploadedPhoto.id,
+                    };
+                }
+
+                if ((options.mediaFile || options.mediaRemoved) && next.media_file_id) {
+                    await deleteMediaFile(next.media_file_id);
+                    next = {
+                        ...next,
+                        media_type: null,
+                        media_file_id: null,
+                    };
+                }
+
+                if (options.mediaFile) {
+                    const kind = options.mediaFile.type.startsWith("video/") ? "video" : "audio";
+                    const uploadedMedia = await uploadMediaFile(next.id, kind, options.mediaFile);
+                    next = {
+                        ...next,
+                        media_type: kind,
+                        media_file_id: uploadedMedia.id,
+                    };
+                }
+
+                await dbPut(next);
+                return next;
+            };
+
             if (existing) {
                 const mediaType = mediaFile
                     ? newMediaType
@@ -883,8 +947,13 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                     { ...milestoneData, media_type: mediaType },
                     existing,
                 );
-                if (mediaFile) await dbPutMedia(updated.id, mediaFile, mediaFile.type);
-                const newMs = milestones.map((m) => (m.id === existing.id ? updated : m));
+                const hydrated = await syncMilestoneMedia(updated, {
+                    photoFile,
+                    photoRemoved,
+                    mediaFile,
+                    mediaRemoved,
+                });
+                const newMs = milestones.map((m) => (m.id === existing.id ? hydrated : m));
                 pushHistory(newMs);
                 setMilestones(newMs);
                 audio.playEditSave();
@@ -909,15 +978,21 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                         ...milestoneData,
                         date: d,
                         recurrence_id: rid,
-                        // only the base-year instance keeps the original note / photo / media / url
+                        // only the base-year instance keeps the original note / media / url
                         note: y === baseYear ? (milestoneData.note ?? "") : "",
-                        photo_uri: y === baseYear ? (milestoneData.photo_uri ?? "") : "",
                         media_type: y === baseYear ? newMediaType : null,
                         url: y === baseYear ? (milestoneData.url ?? "") : "",
                     });
-                    if (y === baseYear && mediaFile)
-                        await dbPutMedia(m.id, mediaFile, mediaFile.type);
-                    created.push(m);
+                    const withMedia =
+                        y === baseYear
+                            ? await syncMilestoneMedia(m, {
+                                  photoFile,
+                                  photoRemoved,
+                                  mediaFile,
+                                  mediaRemoved,
+                              })
+                            : m;
+                    created.push(withMedia);
                 }
                 const newMs = [...milestones, ...created];
                 pushHistory(newMs);
@@ -930,11 +1005,16 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                     ...milestoneData,
                     media_type: newMediaType,
                 });
-                if (mediaFile) await dbPutMedia(m.id, mediaFile, mediaFile.type);
-                const newMs = [...milestones, m];
+                const hydrated = await syncMilestoneMedia(m, {
+                    photoFile,
+                    photoRemoved,
+                    mediaFile,
+                    mediaRemoved,
+                });
+                const newMs = [...milestones, hydrated];
                 pushHistory(newMs);
                 setMilestones(newMs);
-                setNewlyAddedId(m.id);
+                setNewlyAddedId(hydrated.id);
                 audio.playChime();
             }
         } catch (e: unknown) {
