@@ -1,4 +1,4 @@
-const DEFAULT_API_BASE = "http://127.0.0.1:3001/api";
+const DEFAULT_API_BASE = "/api";
 
 function resolveApiBase(): string {
     const configured = import.meta.env.VITE_API_BASE_URL;

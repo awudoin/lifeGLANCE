@@ -95,6 +95,7 @@ Currently this project stores is a frontend only application and stores all data
 - Shared persistent volumes for both
   - `/data/app.db`
   - `/data/media`
+- Implementation details live in `deployment.md`
 
 # Implementation Plan
 ## Phase 1

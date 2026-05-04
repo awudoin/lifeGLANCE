@@ -4,6 +4,7 @@
 - **api.md** - This file outlines the API surface of the NodeJS backend
 - **architecture.md** - This file outlines the technical architecture of the application including software stack
 - **database.md** - This file outlines the database schema
+- **deployment.md** - This file outlines Docker and runtime deployment for the split frontend/backend stack
 - **upgrade-plan.md** - This file outlines the planned upgrade to migrate the application to use a persistent database
 
 ## Making Modifications

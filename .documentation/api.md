@@ -1,5 +1,7 @@
 # API routes defined in the backend project
 
+Deployment and container runtime details are documented in `deployment.md`.
+
 | Endpoint | Method | Arguments | Returns | Comments |
 |----------|--------|-----------|---------|----------|
 | `/api/health` | GET | None | `{ ok: true }` | Health check |
