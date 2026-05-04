@@ -1,1205 +1,1395 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react'
-import Timeline          from './Timeline'
-import StatsPanel        from '../stats/StatsPanel'
-import AddMilestoneSheet from '../milestone/AddMilestoneSheet'
-import MilestoneDetail   from '../milestone/MilestoneDetail'
-import SettingsModal     from '../settings/SettingsModal'
-import HelpModal         from '../help/HelpModal'
-import SearchModal       from '../search/SearchModal'
-import SummaryModal      from '../stats/SummaryModal'
-import OnThisDayModal    from './OnThisDayModal'
-import IcsImportModal    from '../import/IcsImportModal'
-import MinimapBar        from '../minimap/MinimapBar'
-import TypewriterText    from '../ui/TypewriterText'
-import { ZOOM_LEVELS }   from '../../utils/timeline'
-import { loadCategories } from '../../utils/colors'
-import { addMilestone, updateMilestone, deleteMilestone, restoreMilestones, uid } from '../../data/milestones'
-import { dbPutMedia } from '../../data/db'
-import { parseIcs }      from '../../utils/icsParser'
-import * as audio from '../../utils/audio'
-import type { CategoryRecord, FrontendMilestone, IcsParseResult } from '../../data/types'
-import type { TimelineHandle } from './Timeline'
-import type { ViewMode, ZoomLevel } from '../../utils/timeline'
+/** biome-ignore-all lint/a11y/useKeyWithClickEvents: Quick hack -> need to fix */
+/** biome-ignore-all lint/a11y/noAutofocus: Quick hack -> need to fix */
+/** biome-ignore-all lint/a11y/noStaticElementInteractions: Quick hack -> need to fix*/
 
-const ZOOM_RANK = { decades: 5, '30yr': 4, years: 3, months: 2, weeks: 1, custom: 3.5 }
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { dbPutMedia } from "../../data/db";
+import { addMilestone, deleteMilestone, restoreMilestones, uid, updateMilestone } from "../../data/milestones";
+import type { CategoryRecord, FrontendMilestone, FrontendMilestoneSave, IcsParseResult } from "../../data/types";
+import * as audio from "../../utils/audio";
+import { loadCategories } from "../../utils/colors";
+import { parseIcs } from "../../utils/icsParser";
+import type { ViewMode, ZoomLevel } from "../../utils/timeline";
+import { ZOOM_LEVELS } from "../../utils/timeline";
+import HelpModal from "../help/HelpModal";
+import IcsImportModal from "../import/IcsImportModal";
+import AddMilestoneSheet from "../milestone/AddMilestoneSheet";
+import MilestoneDetail from "../milestone/MilestoneDetail";
+import MinimapBar from "../minimap/MinimapBar";
+import SearchModal from "../search/SearchModal";
+import SettingsModal from "../settings/SettingsModal";
+import StatsPanel from "../stats/StatsPanel";
+import SummaryModal from "../stats/SummaryModal";
+import TypewriterText from "../ui/TypewriterText";
+import OnThisDayModal from "./OnThisDayModal";
+import type { TimelineHandle } from "./Timeline";
+import Timeline from "./Timeline";
+
+const ZOOM_RANK = { decades: 5, "30yr": 4, years: 3, months: 2, weeks: 1, custom: 3.5 };
 
 const TEXT_SIZES = {
-  small:  '19px',
-  normal: '22px',
-  big:    '26px',
-  bigger: '30px',
-}
+    small: "19px",
+    normal: "22px",
+    big: "26px",
+    bigger: "30px",
+};
 
-const ZOOM_ANIM_MS = 380
-type TextSize = keyof typeof TEXT_SIZES
+const ZOOM_ANIM_MS = 380;
+export type TextSize = keyof typeof TEXT_SIZES;
 
 interface TimelineViewProps {
-  milestones: FrontendMilestone[];
-  setMilestones: React.Dispatch<React.SetStateAction<FrontendMilestone[]>>;
+    milestones: FrontendMilestone[];
+    setMilestones: React.Dispatch<React.SetStateAction<FrontendMilestone[]>>;
 }
 
-function applyRecurFilter(ms: FrontendMilestone[], mode: 'next' | ViewMode): FrontendMilestone[] {
-  if (mode === 'all') return ms
-  const now    = new Date()
-  const nonRec = ms.filter(m => !m.recurrence_id)
-  const rec    = ms.filter(m =>  m.recurrence_id)
-  if (mode === 'past')   return [...nonRec, ...rec.filter(m => new Date(m.date) <  now)]
-  if (mode === 'future') return [...nonRec, ...rec.filter(m => new Date(m.date) >= now)]
-  // 'next': one instance per series — nearest upcoming, or most recent past if none upcoming
-  const byId: Record<string, FrontendMilestone[]> = {}
-  for (const m of rec) { (byId[m.recurrence_id] ??= []).push(m) }
-  const picked = Object.values(byId).map((arr) => {
-    const up = arr.filter(m => new Date(m.date) >= now).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    return up.length ? up[0] : arr.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
-  })
-  return [...nonRec, ...picked.filter(Boolean)]
+function applyRecurFilter(ms: FrontendMilestone[], mode: "next" | ViewMode): FrontendMilestone[] {
+    if (mode === "all") return ms;
+    const now = new Date();
+    const nonRec = ms.filter((m) => !m.recurrence_id);
+    const rec = ms.filter((m) => m.recurrence_id);
+    if (mode === "past") return [...nonRec, ...rec.filter((m) => new Date(m.date) < now)];
+    if (mode === "future") return [...nonRec, ...rec.filter((m) => new Date(m.date) >= now)];
+    // 'next': one instance per series — nearest upcoming, or most recent past if none upcoming
+    const byId: Record<string, FrontendMilestone[]> = {};
+    for (const m of rec) {
+        if (m.recurrence_id === null) continue;
+
+        if (!(m.recurrence_id in byId)) {
+            byId[m.recurrence_id] = [];
+        }
+        byId[m.recurrence_id].push(m);
+    }
+    const picked = Object.values(byId).map((arr) => {
+        const up = arr
+            .filter((m) => new Date(m.date) >= now)
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        return up.length ? up[0] : arr.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+    });
+    return [...nonRec, ...picked.filter(Boolean)];
 }
 
 export default function TimelineView({ milestones, setMilestones }: TimelineViewProps) {
-  const [zoom,          setZoom]          = useState<ZoomLevel>('years')
-  const [zoomAnim,      setZoomAnim]      = useState('')
-  const [filter,        setFilter]        = useState('all')
-  const [addOpen,       setAddOpen]       = useState(false)
-  const [editTarget,    setEditTarget]    = useState(null)
-  const [detail,        setDetail]        = useState(null)
-  const [textSize,      setTextSize]      = useState<TextSize>(() => {
-    const stored = localStorage.getItem('lifeglance-text-size')
-    if (stored === 'small' || stored === 'normal' || stored === 'big' || stored === 'bigger') return stored
-    // First-visit default: estimate available SVG height (total minus fixed chrome)
-    const hEst = window.innerHeight - 141
-    if (hEst < 240) return 'small'
-    if (hEst < 640) return 'normal'
-    return 'big'
-  })
-  const [customYears,   setCustomYears]   = useState(15)
-  const [pastIdx,       setPastIdx]       = useState(0)
-  const [futureIdx,     setFutureIdx]     = useState(0)
-  const [selectedId,    setSelectedId]    = useState(null)
-  const [highlightsActive, setHighlightsActive] = useState(true)
-  const [settingsOpen,  setSettingsOpen]  = useState(false)
-  const [helpOpen,      setHelpOpen]      = useState(false)
-  const [searchOpen,    setSearchOpen]    = useState(false)
-  const [viewMode,      setViewMode]      = useState<ViewMode>('all')
-  const [recurFilter,   setRecurFilter]   = useState<'next' | ViewMode>('next')
-  const [categories,    setCategories]    = useState<CategoryRecord[]>(loadCategories)
-  const [panMs,         setPanMs]         = useState(0)
-  const [compactHeader, setCompactHeader] = useState(
-    () => window.matchMedia('(max-width: 1080px)').matches
-  )
-  const [zoomOpen,      setZoomOpen]      = useState(false)
-  const [compactFilter, setCompactFilter] = useState(
-    () => window.matchMedia('(max-width: 1200px)').matches
-  )
-  const [filterOpen,    setFilterOpen]    = useState(false)
-  const [compactStats,  setCompactStats]  = useState(
-    () => window.matchMedia('(max-width: 768px), (max-height: 600px)').matches
-  )
-  const [ultraCompact,  setUltraCompact]  = useState(
-    () => window.matchMedia('(max-height: 500px)').matches
-  )
-  const [clustering,    setClustering]    = useState(
-    () => localStorage.getItem('lifeglance-clustering') !== 'false'
-  )
-  const [birthday,      setBirthday]      = useState(
-    () => localStorage.getItem('lifeglance-birthday') || ''
-  )
-  const [canUndo,       setCanUndo]       = useState(false)
-  const [canRedo,       setCanRedo]       = useState(false)
-  const [newlyAddedId,  setNewlyAddedId]  = useState(null)
-  const [summaryOpen,   setSummaryOpen]   = useState(false)
-  const [onThisDayOpen, setOnThisDayOpen] = useState(false)
-  const [icsImport,     setIcsImport]     = useState<IcsParseResult | null>(null)
-  const [toast,         setToast]         = useState(null)  // { message, type } | null
-  const [mediaConfirm,  setMediaConfirm]  = useState(null)  // { data, existing, fileSize, remaining } | null
+    const [zoom, setZoom] = useState<ZoomLevel>("years");
+    const [zoomAnim, setZoomAnim] = useState("");
+    const [filter, setFilter] = useState("all");
+    const [addOpen, setAddOpen] = useState(false);
+    const [editTarget, setEditTarget] = useState<FrontendMilestone | null>(null);
+    const [detail, setDetail] = useState<FrontendMilestone | null>(null);
+    const [textSize, setTextSize] = useState<TextSize>(() => {
+        const stored = localStorage.getItem("lifeglance-text-size");
+        if (stored === "small" || stored === "normal" || stored === "big" || stored === "bigger") return stored;
+        // First-visit default: estimate available SVG height (total minus fixed chrome)
+        const hEst = window.innerHeight - 141;
+        if (hEst < 240) return "small";
+        if (hEst < 640) return "normal";
+        return "big";
+    });
+    const [customYears, setCustomYears] = useState(15);
+    const [pastIdx, setPastIdx] = useState(0);
+    const [futureIdx, setFutureIdx] = useState(0);
+    const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [highlightsActive, setHighlightsActive] = useState(true);
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const [helpOpen, setHelpOpen] = useState(false);
+    const [searchOpen, setSearchOpen] = useState(false);
+    const [viewMode, setViewMode] = useState<ViewMode>("all");
+    const [recurFilter, setRecurFilter] = useState<"next" | ViewMode>("next");
+    const [categories, setCategories] = useState<CategoryRecord[]>(loadCategories);
+    const [panMs, setPanMs] = useState(0);
+    const [compactHeader, setCompactHeader] = useState(() => window.matchMedia("(max-width: 1080px)").matches);
+    const [zoomOpen, setZoomOpen] = useState(false);
+    const [compactFilter, setCompactFilter] = useState(() => window.matchMedia("(max-width: 1200px)").matches);
+    const [filterOpen, setFilterOpen] = useState(false);
+    const [compactStats, setCompactStats] = useState(
+        () => window.matchMedia("(max-width: 768px), (max-height: 600px)").matches,
+    );
+    const [ultraCompact, setUltraCompact] = useState(() => window.matchMedia("(max-height: 500px)").matches);
+    const [clustering, setClustering] = useState(() => localStorage.getItem("lifeglance-clustering") !== "false");
+    const [birthday, setBirthday] = useState(() => localStorage.getItem("lifeglance-birthday") || "");
+    const [canUndo, setCanUndo] = useState(false);
+    const [canRedo, setCanRedo] = useState(false);
+    const [newlyAddedId, setNewlyAddedId] = useState<string | null>(null);
+    const [summaryOpen, setSummaryOpen] = useState(false);
+    const [onThisDayOpen, setOnThisDayOpen] = useState(false);
+    const [icsImport, setIcsImport] = useState<IcsParseResult | null>(null);
+    const [toast, setToast] = useState<{ message: string; type: string } | null>(null); // { message, type } | null
+    const [mediaConfirm, setMediaConfirm] = useState<{
+        data: FrontendMilestoneSave;
+        existing: FrontendMilestone | undefined;
+        fileSize: number;
+        remaining: number;
+    } | null>(null); // { data, existing, fileSize, remaining } | null
 
-  const timelineRef    = useRef<TimelineHandle | null>(null)
-  const zoomWrapRef    = useRef<HTMLDivElement | null>(null)
-  const bodyRef        = useRef<HTMLDivElement | null>(null)
-  const zoomRef        = useRef<ZoomLevel>('years')
-  const zoomLocked     = useRef(false)
-  const customInputRef = useRef(null)
-  const historyRef     = useRef(null)   // { stack: Milestone[][], idx: number }
-  const toastTimerRef  = useRef(null)
+    const timelineRef = useRef<TimelineHandle | null>(null);
+    const zoomWrapRef = useRef<HTMLDivElement | null>(null);
+    const bodyRef = useRef<HTMLDivElement | null>(null);
+    const zoomRef = useRef<ZoomLevel>("years");
+    const zoomLocked = useRef(false);
+    const customInputRef = useRef<HTMLInputElement>(null);
+    const historyRef = useRef<{ stack: FrontendMilestone[][]; idx: number }>(null); // { stack: Milestone[][], idx: number }
+    const toastTimerRef = useRef<number>(null);
 
-  // Apply font size globally
-  useEffect(() => {
-    document.documentElement.style.fontSize = TEXT_SIZES[textSize]
-    localStorage.setItem('lifeglance-text-size', textSize)
-  }, [textSize])
+    // Apply font size globally
+    useEffect(() => {
+        document.documentElement.style.fontSize = TEXT_SIZES[textSize];
+        localStorage.setItem("lifeglance-text-size", textSize);
+    }, [textSize]);
 
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 1080px)')
-    const handler = (e: MediaQueryListEvent) => setCompactHeader(e.matches)
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
-  }, [])
+    useEffect(() => {
+        const mq = window.matchMedia("(max-width: 1080px)");
+        const handler = (e: MediaQueryListEvent) => setCompactHeader(e.matches);
+        mq.addEventListener("change", handler);
+        return () => mq.removeEventListener("change", handler);
+    }, []);
 
-  useEffect(() => {
-    if (!zoomOpen) return
-    const close = () => setZoomOpen(false)
-    document.addEventListener('click', close)
-    return () => document.removeEventListener('click', close)
-  }, [zoomOpen])
+    useEffect(() => {
+        if (!zoomOpen) return;
+        const close = () => setZoomOpen(false);
+        document.addEventListener("click", close);
+        return () => document.removeEventListener("click", close);
+    }, [zoomOpen]);
 
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 1200px)')
-    const handler = (e: MediaQueryListEvent) => setCompactFilter(e.matches)
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
-  }, [])
+    useEffect(() => {
+        const mq = window.matchMedia("(max-width: 1200px)");
+        const handler = (e: MediaQueryListEvent) => setCompactFilter(e.matches);
+        mq.addEventListener("change", handler);
+        return () => mq.removeEventListener("change", handler);
+    }, []);
 
-  useEffect(() => {
-    if (!filterOpen) return
-    const close = () => setFilterOpen(false)
-    document.addEventListener('click', close)
-    return () => document.removeEventListener('click', close)
-  }, [filterOpen])
+    useEffect(() => {
+        if (!filterOpen) return;
+        const close = () => setFilterOpen(false);
+        document.addEventListener("click", close);
+        return () => document.removeEventListener("click", close);
+    }, [filterOpen]);
 
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 768px), (max-height: 600px)')
-    const handler = (e: MediaQueryListEvent) => setCompactStats(e.matches)
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
-  }, [])
+    useEffect(() => {
+        const mq = window.matchMedia("(max-width: 768px), (max-height: 600px)");
+        const handler = (e: MediaQueryListEvent) => setCompactStats(e.matches);
+        mq.addEventListener("change", handler);
+        return () => mq.removeEventListener("change", handler);
+    }, []);
 
-  useEffect(() => {
-    const mq = window.matchMedia('(max-height: 500px)')
-    const handler = (e: MediaQueryListEvent) => setUltraCompact(e.matches)
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
-  }, [])
+    useEffect(() => {
+        const mq = window.matchMedia("(max-height: 500px)");
+        const handler = (e: MediaQueryListEvent) => setUltraCompact(e.matches);
+        mq.addEventListener("change", handler);
+        return () => mq.removeEventListener("change", handler);
+    }, []);
 
+    // Restrict text size: big/bigger cards overflow the axis on short screens.
+    useEffect(() => {
+        if (ultraCompact && (textSize === "big" || textSize === "bigger")) {
+            setTextSize("normal");
+        }
+    }, [ultraCompact, textSize]);
 
-  // Restrict text size: big/bigger cards overflow the axis on short screens.
-  useEffect(() => {
-    if (ultraCompact && (textSize === 'big' || textSize === 'bigger')) {
-      setTextSize('normal')
+    // ── Zoom ─────────────────────────────────────────────────────────────────────
+    const handleZoom = useCallback(
+        (newZoom) => {
+            if (newZoom === zoom) return;
+            const dir = ZOOM_RANK[newZoom] > ZOOM_RANK[zoom] ? "zooming-out" : "zooming-in";
+            setZoomAnim(dir);
+            setTimeout(() => {
+                setZoom(newZoom);
+                setZoomAnim("");
+            }, ZOOM_ANIM_MS);
+        },
+        [zoom],
+    );
+
+    useEffect(() => {
+        zoomRef.current = zoom;
+    }, [zoom]);
+    const handleZoomRef = useRef(handleZoom);
+    useEffect(() => {
+        handleZoomRef.current = handleZoom;
+    }, [handleZoom]);
+
+    // Wheel zoom (non-passive so we can preventDefault)
+    useEffect(() => {
+        const el = zoomWrapRef.current;
+        if (!el) return;
+        const onWheel = (e) => {
+            e.preventDefault();
+            if (zoomLocked.current) return;
+            const idx = ZOOM_LEVELS.indexOf(zoomRef.current);
+            const nextIdx = e.deltaY < 0 ? idx + 1 : idx - 1;
+            if (nextIdx < 0 || nextIdx >= ZOOM_LEVELS.length) return;
+            zoomLocked.current = true;
+            setTimeout(() => {
+                zoomLocked.current = false;
+            }, ZOOM_ANIM_MS + 60);
+            handleZoomRef.current(ZOOM_LEVELS[nextIdx]);
+        };
+        el.addEventListener("wheel", onWheel, { passive: false });
+        return () => el.removeEventListener("wheel", onWheel);
+    }, []);
+
+    // ── Filter ───────────────────────────────────────────────────────────────────
+    const presentCategories = categories.filter((cat) => milestones.some((m) => m.category === cat.id));
+    const hasRecurring = milestones.some((m) => m.recurrence_id);
+    const categoryFiltered = filter === "all" ? milestones : milestones.filter((m) => m.category === filter);
+    const filteredMilestones = applyRecurFilter(categoryFiltered, recurFilter);
+
+    function cycleRecurFilter() {
+        setRecurFilter((f) => ({ next: "all", all: "past", past: "future", future: "next" })[f] as "next" | ViewMode);
     }
-  }, [ultraCompact, textSize])
 
-  // ── Zoom ─────────────────────────────────────────────────────────────────────
-  const handleZoom = useCallback((newZoom) => {
-    if (newZoom === zoom) return
-    const dir = ZOOM_RANK[newZoom] > ZOOM_RANK[zoom] ? 'zooming-out' : 'zooming-in'
-    setZoomAnim(dir)
-    setTimeout(() => { setZoom(newZoom); setZoomAnim('') }, ZOOM_ANIM_MS)
-  }, [zoom])
+    // ── "On this day" — milestones that share today's month (and day if precision allows) ──
+    const onThisDayItems = React.useMemo(() => {
+        const today = new Date();
+        const todayMonth = today.getMonth() + 1;
+        const todayDay = today.getDate();
+        return milestones
+            .filter((m) => {
+                if (new Date(m.date) >= today) return false;
+                if (m.date_precision === "year") return false;
+                const d = new Date(m.date);
+                const sameMonth = d.getMonth() + 1 === todayMonth;
+                if (m.date_precision === "month") return sameMonth;
+                return sameMonth && d.getDate() === todayDay;
+            })
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [milestones]);
 
-  useEffect(() => { zoomRef.current = zoom }, [zoom])
-  const handleZoomRef = useRef(handleZoom)
-  useEffect(() => { handleZoomRef.current = handleZoom }, [handleZoom])
+    // ── Past / future for stat panel ─────────────────────────────────────────────
+    const now = new Date();
+    const past = [...filteredMilestones]
+        .filter((m) => new Date(m.date) < now)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const future = [...filteredMilestones]
+        .filter((m) => new Date(m.date) >= now)
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  // Wheel zoom (non-passive so we can preventDefault)
-  useEffect(() => {
-    const el = zoomWrapRef.current
-    if (!el) return
-    const onWheel = (e) => {
-      e.preventDefault()
-      if (zoomLocked.current) return
-      const idx     = ZOOM_LEVELS.indexOf(zoomRef.current)
-      const nextIdx = e.deltaY < 0 ? idx + 1 : idx - 1
-      if (nextIdx < 0 || nextIdx >= ZOOM_LEVELS.length) return
-      zoomLocked.current = true
-      setTimeout(() => { zoomLocked.current = false }, ZOOM_ANIM_MS + 60)
-      handleZoomRef.current(ZOOM_LEVELS[nextIdx])
+    // Clamp indices when lists shrink
+    useEffect(() => {
+        setPastIdx((i) => Math.min(i, Math.max(0, past.length - 1)));
+    }, [past.length]);
+    useEffect(() => {
+        setFutureIdx((i) => Math.min(i, Math.max(0, future.length - 1)));
+    }, [future.length]);
+
+    const highlightedIds: Set<string> = highlightsActive
+        ? new Set([past[pastIdx]?.id, future[futureIdx]?.id].filter((value): value is string => Boolean(value)))
+        : new Set<string>();
+
+    // ── Stat panel navigation (shared by buttons, keyboard, and swipe) ───────────
+    function handlePastNav(i) {
+        const clamped = Math.max(0, Math.min(i, past.length - 1));
+        setPastIdx(clamped);
+        setSelectedId(null);
+        setHighlightsActive(true);
+        const m = past[clamped];
+        if (m) timelineRef.current?.panToMs(new Date(m.date).getTime());
     }
-    el.addEventListener('wheel', onWheel, { passive: false })
-    return () => el.removeEventListener('wheel', onWheel)
-  }, [])
 
-  // ── Filter ───────────────────────────────────────────────────────────────────
-  const presentCategories = categories.filter(cat =>
-    milestones.some(m => m.category === cat.id)
-  )
-  const hasRecurring = milestones.some(m => m.recurrence_id)
-  const categoryFiltered = filter === 'all' ? milestones : milestones.filter(m => m.category === filter)
-  const filteredMilestones = applyRecurFilter(categoryFiltered, recurFilter)
-
-  function cycleRecurFilter() {
-    setRecurFilter((f) => ({ next: 'all', all: 'past', past: 'future', future: 'next' }[f] as 'next' | ViewMode))
-  }
-
-  // ── "On this day" — milestones that share today's month (and day if precision allows) ──
-  const onThisDayItems = React.useMemo(() => {
-    const today = new Date()
-    const todayMonth = today.getMonth() + 1
-    const todayDay   = today.getDate()
-    return milestones.filter(m => {
-      if (new Date(m.date) >= today) return false
-      if (m.date_precision === 'year') return false
-      const d = new Date(m.date)
-      const sameMonth = d.getMonth() + 1 === todayMonth
-      if (m.date_precision === 'month') return sameMonth
-      return sameMonth && d.getDate() === todayDay
-    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  }, [milestones])
-
-  // ── Past / future for stat panel ─────────────────────────────────────────────
-  const now    = new Date()
-  const past   = [...filteredMilestones]
-    .filter(m => new Date(m.date) < now)
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  const future = [...filteredMilestones]
-    .filter(m => new Date(m.date) >= now)
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-
-  // Clamp indices when lists shrink
-  useEffect(() => {
-    setPastIdx(i => Math.min(i, Math.max(0, past.length - 1)))
-  }, [past.length])
-  useEffect(() => {
-    setFutureIdx(i => Math.min(i, Math.max(0, future.length - 1)))
-  }, [future.length])
-
-  const highlightedIds: Set<string> = highlightsActive
-    ? new Set([past[pastIdx]?.id, future[futureIdx]?.id].filter((value): value is string => Boolean(value)))
-    : new Set<string>()
-
-  // ── Stat panel navigation (shared by buttons, keyboard, and swipe) ───────────
-  function handlePastNav(i) {
-    const clamped = Math.max(0, Math.min(i, past.length - 1))
-    setPastIdx(clamped)
-    setSelectedId(null)
-    setHighlightsActive(true)
-    const m = past[clamped]
-    if (m) timelineRef.current?.panToMs(new Date(m.date).getTime())
-  }
-
-  function handleFutureNav(i) {
-    const clamped = Math.max(0, Math.min(i, future.length - 1))
-    setFutureIdx(clamped)
-    setSelectedId(null)
-    setHighlightsActive(true)
-    const m = future[clamped]
-    if (m) timelineRef.current?.panToMs(new Date(m.date).getTime())
-  }
-
-  // ── Milestone click: first click selects + centers, second opens detail ───────
-  function handleMilestoneClick(m) {
-    if (highlightsActive && selectedId === m.id) {
-      setDetail(m)
-    } else {
-      setSelectedId(m.id)
-      setHighlightsActive(true)
-      timelineRef.current?.panToMs(new Date(m.date).getTime())
-      const pastI = past.findIndex(p => p.id === m.id)
-      if (pastI !== -1) {
-        setPastIdx(pastI)
-      } else {
-        const futureI = future.findIndex(f => f.id === m.id)
-        if (futureI !== -1) setFutureIdx(futureI)
-      }
+    function handleFutureNav(i) {
+        const clamped = Math.max(0, Math.min(i, future.length - 1));
+        setFutureIdx(clamped);
+        setSelectedId(null);
+        setHighlightsActive(true);
+        const m = future[clamped];
+        if (m) timelineRef.current?.panToMs(new Date(m.date).getTime());
     }
-  }
 
-  // ── Jump to today ─────────────────────────────────────────────────────────────
-  function handleJumpToToday() {
-    timelineRef.current?.resetPan()
-    setPastIdx(0)
-    setFutureIdx(0)
-    setSelectedId(null)
-    setHighlightsActive(true)
-  }
-
-  // ── Cluster click: zoom in one level and pan to cluster centre ───────────────
-  function handleClusterClick(clusterCenterMs) {
-    timelineRef.current?.panToMs(clusterCenterMs)
-    const idx = ZOOM_LEVELS.indexOf(zoom)
-    if (idx < ZOOM_LEVELS.length - 1) handleZoom(ZOOM_LEVELS[idx + 1])
-  }
-
-  // ── Search select ────────────────────────────────────────────────────────────
-  function handleSearchSelect(m) {
-    setSearchOpen(false)
-    setSelectedId(m.id)
-    setHighlightsActive(true)
-    timelineRef.current?.panToMs(new Date(m.date).getTime())
-    const pastI = past.findIndex(p => p.id === m.id)
-    if (pastI !== -1) {
-      setPastIdx(pastI)
-    } else {
-      const futureI = future.findIndex(f => f.id === m.id)
-      if (futureI !== -1) setFutureIdx(futureI)
+    // ── Milestone click: first click selects + centers, second opens detail ───────
+    function handleMilestoneClick(m: FrontendMilestone) {
+        if (highlightsActive && selectedId === m.id) {
+            setDetail(m);
+        } else {
+            setSelectedId(m.id);
+            setHighlightsActive(true);
+            timelineRef.current?.panToMs(new Date(m.date).getTime());
+            const pastI = past.findIndex((p) => p.id === m.id);
+            if (pastI !== -1) {
+                setPastIdx(pastI);
+            } else {
+                const futureI = future.findIndex((f) => f.id === m.id);
+                if (futureI !== -1) setFutureIdx(futureI);
+            }
+        }
     }
-  }
 
-  // ── View mode ────────────────────────────────────────────────────────────────
-  function handleViewMode(mode) {
-    setViewMode(mode)
-    setPanMs(0)
-    if (timelineRef.current) timelineRef.current.resetPan()
-  }
-
-  // ── Undo / redo ───────────────────────────────────────────────────────────────
-  // Snapshot-based: each mutation stores the full milestones array.
-  // historyRef.current = { stack: Milestone[][], idx: number }
-  // stack[idx] is the current state; stack[idx-1] is "one undo ago".
-
-  function pushHistory(newMs) {
-    if (!historyRef.current) {
-      // lazy init: capture the pre-mutation state as the base entry
-      historyRef.current = { stack: [milestones], idx: 0 }
+    // ── Jump to today ─────────────────────────────────────────────────────────────
+    function handleJumpToToday() {
+        timelineRef.current?.resetPan();
+        setPastIdx(0);
+        setFutureIdx(0);
+        setSelectedId(null);
+        setHighlightsActive(true);
     }
-    const h = historyRef.current
-    h.stack = h.stack.slice(0, h.idx + 1)   // discard any redo history
-    h.stack.push(newMs)
-    if (h.stack.length > 51) h.stack.shift() // cap memory at 50 undos
-    else h.idx++
-    setCanUndo(h.idx > 0)
-    setCanRedo(false)
-  }
 
-  async function handleUndo() {
-    const h = historyRef.current
-    if (!h || h.idx === 0) return
-    h.idx--
-    const snapshot = h.stack[h.idx]
-    await restoreMilestones(snapshot)
-    setMilestones(snapshot)
-    setCanUndo(h.idx > 0)
-    setCanRedo(true)
-  }
-
-  async function handleRedo() {
-    const h = historyRef.current
-    if (!h || h.idx >= h.stack.length - 1) return
-    h.idx++
-    const snapshot = h.stack[h.idx]
-    await restoreMilestones(snapshot)
-    setMilestones(snapshot)
-    setCanUndo(true)
-    setCanRedo(h.idx < h.stack.length - 1)
-  }
-
-  // ── Keyboard shortcuts ────────────────────────────────────────────────────────
-  // Use a ref so the listener is registered once but always sees fresh state
-  const keyStateRef = useRef(null)
-  keyStateRef.current = {
-    pastIdx, futureIdx, past, future, zoom,
-    addOpen, detail, settingsOpen, helpOpen, searchOpen,
-    handlePastNav, handleFutureNav, handleJumpToToday, handleViewMode, closeSheet,
-    handleUndo, handleRedo, canUndo, canRedo,
-    clustering, setClustering,
-  }
-
-  useEffect(() => {
-    function onKey(e) {
-      // Allow Escape through even when an input is focused (to close modals)
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) && e.key !== 'Escape') return
-      // Blur focused buttons so keyboard shortcuts work after clicking UI elements.
-      // Exception: Space on a button should still activate it (handled per-case below).
-      if (e.target.tagName === 'BUTTON' && e.key !== ' ' && e.key !== 'Enter') {
-        e.target.blur()
-      }
-      audio.init()   // unlock AudioContext on first keystroke (idempotent)
-      const s = keyStateRef.current
-      const anyModal = s.addOpen || !!s.detail || s.settingsOpen || s.helpOpen || s.searchOpen
-
-      switch (e.key) {
-        case 'ArrowLeft': {
-          if (anyModal) break
-          e.preventDefault()
-          if (s.past.length > 0) {
-            audio.playNavTick(false)
-            s.handlePastNav((s.pastIdx + 1) % s.past.length)
-          }
-          break
-        }
-        case 'ArrowRight': {
-          if (anyModal) break
-          e.preventDefault()
-          if (s.future.length > 0) {
-            audio.playNavTick(true)
-            s.handleFutureNav((s.futureIdx + 1) % s.future.length)
-          }
-          break
-        }
-        case 'ArrowUp': {
-          if (anyModal) break
-          e.preventDefault()
-          const upIdx = ZOOM_LEVELS.indexOf(s.zoom)
-          if (upIdx < ZOOM_LEVELS.length - 1) handleZoomRef.current(ZOOM_LEVELS[upIdx + 1])
-          break
-        }
-        case 'ArrowDown': {
-          if (anyModal) break
-          e.preventDefault()
-          const downIdx = ZOOM_LEVELS.indexOf(s.zoom)
-          if (downIdx > 0) handleZoomRef.current(ZOOM_LEVELS[downIdx - 1])
-          break
-        }
-        case 't': case 'T': {
-          if (anyModal) break
-          s.handleJumpToToday()
-          break
-        }
-        case 'e': case 'E': {
-          if (anyModal) break
-          handleExportImage()
-          break
-        }
-        case 'n': case 'N': {
-          if (s.settingsOpen || !!s.detail) break
-          if (!s.addOpen) { e.preventDefault(); setAddOpen(true) }
-          break
-        }
-        case 's': case 'S': {
-          if (s.addOpen || !!s.detail || s.helpOpen) break
-          if (!s.settingsOpen) setSettingsOpen(true)
-          break
-        }
-        case 'c': case 'C': {
-          if (anyModal) break
-          if (s.zoom === 'custom') {
-            customInputRef.current?.focus()
-          } else {
-            handleZoomRef.current('custom')
-            // autoFocus fires when the input mounts
-          }
-          break
-        }
-        case 'p': case 'P': {
-          if (anyModal) break
-          s.handleViewMode('past')
-          break
-        }
-        case 'a': case 'A': {
-          if (anyModal) break
-          s.handleViewMode('all')
-          break
-        }
-        case 'f': case 'F': {
-          if (anyModal) break
-          s.handleViewMode('future')
-          break
-        }
-        case '/': {
-          e.preventDefault() // prevent browser Quick Find (Firefox etc.) regardless
-          if (s.addOpen || !!s.detail || s.settingsOpen || s.helpOpen) break
-          if (!s.searchOpen) setSearchOpen(true)
-          break
-        }
-        case '?': {
-          if (s.addOpen || !!s.detail || s.settingsOpen || s.searchOpen) break
-          if (!s.helpOpen) setHelpOpen(true)
-          break
-        }
-        case '1': case '2': case '3': case '4': case '5':
-        case '6': case '7': case '8': case '9': {
-          if (anyModal) break
-          e.preventDefault()
-          const num = parseInt(e.key, 10)
-          setCustomYears(num)
-          if (s.zoom === 'custom') {
-            customInputRef.current?.focus()
-          } else {
-            handleZoomRef.current('custom')
-            // autoFocus fires when the input mounts after the zoom animation
-          }
-          break
-        }
-        case ' ': {
-          if (anyModal) break
-          if (e.target.tagName === 'BUTTON') break  // let Space activate focused buttons normally
-          e.preventDefault()
-          const next = !s.clustering
-          s.setClustering(next)
-          localStorage.setItem('lifeglance-clustering', String(next))
-          break
-        }
-        case 'm': case 'M': {
-          if (anyModal) break
-          audio.toggleMuted()
-          break
-        }
-        case 'z': case 'Z': {
-          if (anyModal) break
-          if (e.metaKey || e.ctrlKey) {
-            e.preventDefault()
-            if (e.shiftKey) { if (s.canRedo) s.handleRedo() }
-            else            { if (s.canUndo) s.handleUndo() }
-          }
-          break
-        }
-        case 'y': case 'Y': {
-          if (anyModal) break
-          if ((e.metaKey || e.ctrlKey) && !e.shiftKey) {
-            e.preventDefault()
-            if (s.canRedo) s.handleRedo()
-          }
-          break
-        }
-        case 'Escape': {
-          if (customInputRef.current && document.activeElement === customInputRef.current) {
-            customInputRef.current.blur()
-            break
-          }
-          if (s.detail)            setDetail(null)
-          else if (s.addOpen)      s.closeSheet()
-          else if (s.settingsOpen) setSettingsOpen(false)
-          else if (s.helpOpen)     setHelpOpen(false)
-          else if (s.searchOpen)   setSearchOpen(false)
-          break
-        }
-        default: break
-      }
+    // ── Cluster click: zoom in one level and pan to cluster centre ───────────────
+    function handleClusterClick(clusterCenterMs) {
+        timelineRef.current?.panToMs(clusterCenterMs);
+        const idx = ZOOM_LEVELS.indexOf(zoom);
+        if (idx < ZOOM_LEVELS.length - 1) handleZoom(ZOOM_LEVELS[idx + 1]);
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, []) // stable — reads fresh values from keyStateRef
 
-  // ── Helpers ──────────────────────────────────────────────────────────────────
-  function fmtBytes(n) {
-    if (n < 1024 ** 2) return `${(n / 1024).toFixed(0)} KB`
-    if (n < 1024 ** 3) return `${(n / 1024 ** 2).toFixed(1)} MB`
-    return `${(n / 1024 ** 3).toFixed(1)} GB`
-  }
-
-  // ── Toast ────────────────────────────────────────────────────────────────────
-  function showToast(message, type = 'error') {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
-    setToast({ message, type })
-    toastTimerRef.current = setTimeout(() => setToast(null), 5000)
-  }
-
-  // ── CRUD ─────────────────────────────────────────────────────────────────────
-  async function executeSave(data, existing) {
-    // mediaFile / mediaRemoved are transfer-only fields from the form — strip them
-    // before passing to the data layer, and handle blob persistence here.
-    const { mediaFile, mediaRemoved, ...milestoneData } = data
-    const newMediaType = mediaFile
-      ? (mediaFile.type.startsWith('video/') ? 'video' : 'audio')
-      : null
-
-    try {
-      if (existing) {
-        const mediaType = mediaFile    ? newMediaType
-                        : mediaRemoved ? null
-                        : (existing.media_type ?? null)
-        const updated = await updateMilestone(existing.id, { ...milestoneData, media_type: mediaType }, existing)
-        if (mediaFile) await dbPutMedia(updated.id, mediaFile, mediaFile.type)
-        const newMs = milestones.map(m => m.id === existing.id ? updated : m)
-        pushHistory(newMs)
-        setMilestones(newMs)
-        audio.playEditSave()
-      } else if (milestoneData.recurrence === 'annual') {
-        // Generate one instance per year from base year to chosen end year (max +99)
-        const rid       = uid()
-        const baseDate  = new Date(milestoneData.date)
-        const baseYear  = baseDate.getFullYear()
-        const endYear   = Math.max(baseYear, Math.min(
-          milestoneData.recurrenceEndYear ?? Math.max(baseYear, new Date().getFullYear()) + 3,
-          baseYear + 99
-        ))
-        const created   = []
-        for (let y = baseYear; y <= endYear; y++) {
-          const d = new Date(baseDate)
-          d.setFullYear(y)
-          const m = await addMilestone({
-            ...milestoneData,
-            date:          d,
-            recurrence_id: rid,
-            // only the base-year instance keeps the original note / photo / media / url
-            note:       y === baseYear ? milestoneData.note      : '',
-            photo_uri:  y === baseYear ? milestoneData.photo_uri : '',
-            media_type: y === baseYear ? newMediaType            : null,
-            url:        y === baseYear ? milestoneData.url       : '',
-          })
-          if (y === baseYear && mediaFile) await dbPutMedia(m.id, mediaFile, mediaFile.type)
-          created.push(m)
+    // ── Search select ────────────────────────────────────────────────────────────
+    function handleSearchSelect(m) {
+        setSearchOpen(false);
+        setSelectedId(m.id);
+        setHighlightsActive(true);
+        timelineRef.current?.panToMs(new Date(m.date).getTime());
+        const pastI = past.findIndex((p) => p.id === m.id);
+        if (pastI !== -1) {
+            setPastIdx(pastI);
+        } else {
+            const futureI = future.findIndex((f) => f.id === m.id);
+            if (futureI !== -1) setFutureIdx(futureI);
         }
-        const newMs = [...milestones, ...created]
-        pushHistory(newMs)
-        setMilestones(newMs)
-        setNewlyAddedId(created[0].id)
-        audio.playChime()
-      } else {
-        const m = await addMilestone({ ...milestoneData, media_type: newMediaType })
-        if (mediaFile) await dbPutMedia(m.id, mediaFile, mediaFile.type)
-        const newMs = [...milestones, m]
-        pushHistory(newMs)
-        setMilestones(newMs)
-        setNewlyAddedId(m.id)
-        audio.playChime()
-      }
-    } catch (err) {
-      console.error('Save failed:', err)
-      const isQuota = err?.name === 'QuotaExceededError' || err?.code === 22
-      showToast(isQuota
-        ? 'Storage full — export a backup to free space, then try again.'
-        : 'Failed to save milestone. Please try again.'
-      )
     }
-  }
 
-  async function handleSave(data, existing) {
-    audio.init()   // ensure AudioContext is running (form submit = user gesture)
-    const { mediaFile } = data
+    // ── View mode ────────────────────────────────────────────────────────────────
+    function handleViewMode(mode) {
+        setViewMode(mode);
+        setPanMs(0);
+        if (timelineRef.current) timelineRef.current.resetPan();
+    }
 
-    if (mediaFile) {
-      let remaining = null
-      if (navigator.storage?.estimate) {
+    // ── Undo / redo ───────────────────────────────────────────────────────────────
+    // Snapshot-based: each mutation stores the full milestones array.
+    // historyRef.current = { stack: Milestone[][], idx: number }
+    // stack[idx] is the current state; stack[idx-1] is "one undo ago".
+
+    function pushHistory(newMs) {
+        if (!historyRef.current) {
+            // lazy init: capture the pre-mutation state as the base entry
+            historyRef.current = { stack: [milestones], idx: 0 };
+        }
+        const h = historyRef.current;
+        h.stack = h.stack.slice(0, h.idx + 1); // discard any redo history
+        h.stack.push(newMs);
+        if (h.stack.length > 51)
+            h.stack.shift(); // cap memory at 50 undos
+        else h.idx++;
+        setCanUndo(h.idx > 0);
+        setCanRedo(false);
+    }
+
+    async function handleUndo() {
+        const h = historyRef.current;
+        if (!h || h.idx === 0) return;
+        h.idx--;
+        const snapshot = h.stack[h.idx];
+        await restoreMilestones(snapshot);
+        setMilestones(snapshot);
+        setCanUndo(h.idx > 0);
+        setCanRedo(true);
+    }
+
+    async function handleRedo() {
+        const h = historyRef.current;
+        if (!h || h.idx >= h.stack.length - 1) return;
+        h.idx++;
+        const snapshot = h.stack[h.idx];
+        await restoreMilestones(snapshot);
+        setMilestones(snapshot);
+        setCanUndo(true);
+        setCanRedo(h.idx < h.stack.length - 1);
+    }
+
+    // ── Keyboard shortcuts ────────────────────────────────────────────────────────
+    // Use a ref so the listener is registered once but always sees fresh state
+    const keyStateRef = useRef({
+        pastIdx,
+        futureIdx,
+        past,
+        future,
+        zoom,
+        addOpen,
+        detail,
+        settingsOpen,
+        helpOpen,
+        searchOpen,
+        handlePastNav,
+        handleFutureNav,
+        handleJumpToToday,
+        handleViewMode,
+        closeSheet,
+        handleUndo,
+        handleRedo,
+        canUndo,
+        canRedo,
+        clustering,
+        setClustering,
+    });
+
+    // ── Export image ─────────────────────────────────────────────────────────────
+    const handleExportImage = useCallback(async () => {
+        const svgEl = zoomWrapRef.current?.querySelector("svg");
+        if (!svgEl) return;
         try {
-          const { quota, usage } = await navigator.storage.estimate()
-          remaining = quota - usage
-          if (remaining < mediaFile.size) {
-            showToast('Not enough storage space for this file. Free up space and try again.')
-            return
-          }
-        } catch { /* estimate unavailable, proceed */ }
-      }
-      if (mediaFile.size > 50 * 1024 * 1024) {
-        setMediaConfirm({ data, existing, fileSize: mediaFile.size, remaining })
-        return
-      }
-    }
+            const { width: w, height: h } = svgEl.getBoundingClientRect();
+            const scale = 2;
+            // The today marker's drop-shadow glow bleeds above y=0. Shift the viewBox
+            // up by topInset so that region is captured instead of clipped.
+            const topInset = 20;
 
-    await executeSave(data, existing)
-  }
+            // Clone SVG, fix rem font-size (canvas defaults 1rem→16px, not the app's value),
+            // expand height + viewBox to capture above-axis glow, and inject a dark bg rect.
+            const clone = svgEl.cloneNode(true) as SVGSVGElement;
+            clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+            clone.setAttribute("width", String(w));
+            clone.setAttribute("height", String(h + topInset));
+            clone.setAttribute("viewBox", `0 ${-topInset} ${w} ${h + topInset}`);
+            clone.style.fontSize = getComputedStyle(svgEl).fontSize; // e.g. "22px"
 
-  async function handleDelete(id) {
-    try {
-      await deleteMilestone(id)
-      const newMs = milestones.filter(m => m.id !== id)
-      pushHistory(newMs)
-      setMilestones(newMs)
-    } catch (err) {
-      console.error('Delete failed:', err)
-      showToast('Failed to delete milestone. Please try again.')
-    }
-  }
+            const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            bg.setAttribute("x", "0");
+            bg.setAttribute("y", String(-topInset));
+            bg.setAttribute("width", String(w));
+            bg.setAttribute("height", String(h + topInset));
+            bg.setAttribute("fill", "#0F1117");
+            clone.insertBefore(bg, clone.firstChild);
 
-  async function handleDeleteSeries(recurrence_id) {
-    try {
-      const toDelete = milestones.filter(m => m.recurrence_id === recurrence_id)
-      for (const m of toDelete) await deleteMilestone(m.id)
-      const newMs = milestones.filter(m => m.recurrence_id !== recurrence_id)
-      pushHistory(newMs)
-      setMilestones(newMs)
-    } catch (err) {
-      console.error('Delete series failed:', err)
-      showToast('Failed to delete recurring series. Please try again.')
-    }
-  }
-
-  function openEdit(m)  { setEditTarget(m); setAddOpen(true) }
-  function closeSheet() { setAddOpen(false); setEditTarget(null) }
-
-  // ── Export image ─────────────────────────────────────────────────────────────
-  async function handleExportImage() {
-    const svgEl = zoomWrapRef.current?.querySelector('svg')
-    if (!svgEl) return
-    try {
-      const { width: w, height: h } = svgEl.getBoundingClientRect()
-      const scale = 2
-      // The today marker's drop-shadow glow bleeds above y=0. Shift the viewBox
-      // up by topInset so that region is captured instead of clipped.
-      const topInset = 20
-
-      // Clone SVG, fix rem font-size (canvas defaults 1rem→16px, not the app's value),
-      // expand height + viewBox to capture above-axis glow, and inject a dark bg rect.
-      const clone = svgEl.cloneNode(true) as SVGSVGElement
-      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
-      clone.setAttribute('width', String(w))
-      clone.setAttribute('height', String(h + topInset))
-      clone.setAttribute('viewBox', `0 ${-topInset} ${w} ${h + topInset}`)
-      clone.style.fontSize = getComputedStyle(svgEl).fontSize // e.g. "22px"
-
-      const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-      bg.setAttribute('x', '0')
-      bg.setAttribute('y', String(-topInset))
-      bg.setAttribute('width', String(w))
-      bg.setAttribute('height', String(h + topInset))
-      bg.setAttribute('fill', '#0F1117')
-      clone.insertBefore(bg, clone.firstChild)
-
-      // Embed Courier Prime — fetch the Google Fonts CSS, then each woff2 file,
-      // encode as base64, and inject a <style> block so the sandboxed SVG img
-      // renders the correct font.
-      try {
-        const fontLink = document.querySelector('link[href*="googleapis.com"][href*="Courier"]') as HTMLLinkElement | null
-        if (fontLink) {
-          const css = await (await fetch(fontLink.href)).text()
-          const blocks = css.match(/@font-face\s*\{[^}]+\}/g) ?? []
-          const embedded = await Promise.all(blocks.map(async block => {
-            const m = block.match(/url\((https:\/\/fonts\.gstatic\.com[^)]+)\)/)
-            if (!m) return block
+            // Embed Courier Prime — fetch the Google Fonts CSS, then each woff2 file,
+            // encode as base64, and inject a <style> block so the sandboxed SVG img
+            // renders the correct font.
             try {
-              const buf = await (await fetch(m[1])).arrayBuffer()
-              const b64 = btoa([...new Uint8Array(buf)].map(b => String.fromCharCode(b)).join(''))
-              return block.replace(m[0], `url('data:font/woff2;base64,${b64}')`)
-            } catch { return null }
-          }))
-          const valid = embedded.filter(Boolean)
-          if (valid.length) {
-            const style = document.createElementNS('http://www.w3.org/2000/svg', 'style')
-            style.textContent = valid.join('\n')
-            clone.insertBefore(style, clone.firstChild)
-          }
+                const fontLink = document.querySelector(
+                    'link[href*="googleapis.com"][href*="Courier"]',
+                ) as HTMLLinkElement | null;
+                if (fontLink) {
+                    const css = await (await fetch(fontLink.href)).text();
+                    const blocks = css.match(/@font-face\s*\{[^}]+\}/g) ?? [];
+                    const embedded = await Promise.all(
+                        blocks.map(async (block) => {
+                            const m = block.match(/url\((https:\/\/fonts\.gstatic\.com[^)]+)\)/);
+                            if (!m) return block;
+                            try {
+                                const buf = await (await fetch(m[1])).arrayBuffer();
+                                const b64 = btoa([...new Uint8Array(buf)].map((b) => String.fromCharCode(b)).join(""));
+                                return block.replace(m[0], `url('data:font/woff2;base64,${b64}')`);
+                            } catch {
+                                return null;
+                            }
+                        }),
+                    );
+                    const valid = embedded.filter(Boolean);
+                    if (valid.length) {
+                        const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
+                        style.textContent = valid.join("\n");
+                        clone.insertBefore(style, clone.firstChild);
+                    }
+                }
+            } catch {
+                /* fall back to system monospace */
+            }
+
+            const svgStr = new XMLSerializer().serializeToString(clone);
+            const svgBlob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
+            const svgUrl = URL.createObjectURL(svgBlob);
+
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.round(w * scale);
+            canvas.height = Math.round((h + topInset) * scale);
+            const ctx = canvas.getContext("2d");
+            if (!ctx) return;
+
+            ctx.scale(scale, scale);
+
+            await new Promise<void>((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    ctx.drawImage(img, 0, 0);
+                    URL.revokeObjectURL(svgUrl);
+                    resolve();
+                };
+                img.onerror = reject;
+                img.src = svgUrl;
+            });
+
+            // Draw lifeGLANCE branding watermark in bottom-left corner
+            const brandPad = 20;
+            const brandY = h + topInset - 24;
+            ctx.save();
+            ctx.textBaseline = "alphabetic";
+            ctx.font = `400 70px 'Courier Prime', 'Courier New', monospace`;
+            const lifeW = ctx.measureText("life").width;
+            ctx.fillStyle = "#E8E0D0";
+            ctx.fillText("life", brandPad, brandY);
+            ctx.font = `bold italic 75px 'Courier Prime', 'Courier New', monospace`;
+            ctx.fillStyle = "#3D3580";
+            ctx.fillText("GLANCE", brandPad + lifeW, brandY);
+            ctx.restore();
+
+            canvas.toBlob((blob) => {
+                if (!blob) return;
+
+                const d = new Date();
+                const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                const a = document.createElement("a");
+                a.download = `lifeglance-${stamp}.png`;
+                a.href = URL.createObjectURL(blob);
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(a.href), 100);
+            }, "image/png");
+        } catch (err) {
+            console.error("Export failed:", err);
         }
-      } catch { /* fall back to system monospace */ }
+    }, []);
 
-      const svgStr = new XMLSerializer().serializeToString(clone)
-      const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' })
-      const svgUrl  = URL.createObjectURL(svgBlob)
+    useEffect(() => {
+        function onKey(e) {
+            // Allow Escape through even when an input is focused (to close modals)
+            if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName) && e.key !== "Escape") return;
+            // Blur focused buttons so keyboard shortcuts work after clicking UI elements.
+            // Exception: Space on a button should still activate it (handled per-case below).
+            if (e.target.tagName === "BUTTON" && e.key !== " " && e.key !== "Enter") {
+                e.target.blur();
+            }
+            audio.init(); // unlock AudioContext on first keystroke (idempotent)
+            const s = keyStateRef.current;
+            const anyModal = s.addOpen || !!s.detail || s.settingsOpen || s.helpOpen || s.searchOpen;
 
-      const canvas = document.createElement('canvas')
-      canvas.width  = Math.round(w * scale)
-      canvas.height = Math.round((h + topInset) * scale)
-      const ctx = canvas.getContext('2d')
-      ctx.scale(scale, scale)
+            switch (e.key) {
+                case "ArrowLeft": {
+                    if (anyModal) break;
+                    e.preventDefault();
+                    if (s.past.length > 0) {
+                        audio.playNavTick(false);
+                        s.handlePastNav((s.pastIdx + 1) % s.past.length);
+                    }
+                    break;
+                }
+                case "ArrowRight": {
+                    if (anyModal) break;
+                    e.preventDefault();
+                    if (s.future.length > 0) {
+                        audio.playNavTick(true);
+                        s.handleFutureNav((s.futureIdx + 1) % s.future.length);
+                    }
+                    break;
+                }
+                case "ArrowUp": {
+                    if (anyModal) break;
+                    e.preventDefault();
+                    const upIdx = ZOOM_LEVELS.indexOf(s.zoom);
+                    if (upIdx < ZOOM_LEVELS.length - 1) handleZoomRef.current(ZOOM_LEVELS[upIdx + 1]);
+                    break;
+                }
+                case "ArrowDown": {
+                    if (anyModal) break;
+                    e.preventDefault();
+                    const downIdx = ZOOM_LEVELS.indexOf(s.zoom);
+                    if (downIdx > 0) handleZoomRef.current(ZOOM_LEVELS[downIdx - 1]);
+                    break;
+                }
+                case "t":
+                case "T": {
+                    if (anyModal) break;
+                    s.handleJumpToToday();
+                    break;
+                }
+                case "e":
+                case "E": {
+                    if (anyModal) break;
+                    handleExportImage();
+                    break;
+                }
+                case "n":
+                case "N": {
+                    if (s.settingsOpen || !!s.detail) break;
+                    if (!s.addOpen) {
+                        e.preventDefault();
+                        setAddOpen(true);
+                    }
+                    break;
+                }
+                case "s":
+                case "S": {
+                    if (s.addOpen || !!s.detail || s.helpOpen) break;
+                    if (!s.settingsOpen) setSettingsOpen(true);
+                    break;
+                }
+                case "c":
+                case "C": {
+                    if (anyModal) break;
+                    if (s.zoom === "custom") {
+                        customInputRef.current?.focus();
+                    } else {
+                        handleZoomRef.current("custom");
+                        // autoFocus fires when the input mounts
+                    }
+                    break;
+                }
+                case "p":
+                case "P": {
+                    if (anyModal) break;
+                    s.handleViewMode("past");
+                    break;
+                }
+                case "a":
+                case "A": {
+                    if (anyModal) break;
+                    s.handleViewMode("all");
+                    break;
+                }
+                case "f":
+                case "F": {
+                    if (anyModal) break;
+                    s.handleViewMode("future");
+                    break;
+                }
+                case "/": {
+                    e.preventDefault(); // prevent browser Quick Find (Firefox etc.) regardless
+                    if (s.addOpen || !!s.detail || s.settingsOpen || s.helpOpen) break;
+                    if (!s.searchOpen) setSearchOpen(true);
+                    break;
+                }
+                case "?": {
+                    if (s.addOpen || !!s.detail || s.settingsOpen || s.searchOpen) break;
+                    if (!s.helpOpen) setHelpOpen(true);
+                    break;
+                }
+                case "1":
+                case "2":
+                case "3":
+                case "4":
+                case "5":
+                case "6":
+                case "7":
+                case "8":
+                case "9": {
+                    if (anyModal) break;
+                    e.preventDefault();
+                    const num = parseInt(e.key, 10);
+                    setCustomYears(num);
+                    if (s.zoom === "custom") {
+                        customInputRef.current?.focus();
+                    } else {
+                        handleZoomRef.current("custom");
+                        // autoFocus fires when the input mounts after the zoom animation
+                    }
+                    break;
+                }
+                case " ": {
+                    if (anyModal) break;
+                    if (e.target.tagName === "BUTTON") break; // let Space activate focused buttons normally
+                    e.preventDefault();
+                    const next = !s.clustering;
+                    s.setClustering(next);
+                    localStorage.setItem("lifeglance-clustering", String(next));
+                    break;
+                }
+                case "m":
+                case "M": {
+                    if (anyModal) break;
+                    audio.toggleMuted();
+                    break;
+                }
+                case "z":
+                case "Z": {
+                    if (anyModal) break;
+                    if (e.metaKey || e.ctrlKey) {
+                        e.preventDefault();
+                        if (e.shiftKey) {
+                            if (s.canRedo) s.handleRedo();
+                        } else {
+                            if (s.canUndo) s.handleUndo();
+                        }
+                    }
+                    break;
+                }
+                case "y":
+                case "Y": {
+                    if (anyModal) break;
+                    if ((e.metaKey || e.ctrlKey) && !e.shiftKey) {
+                        e.preventDefault();
+                        if (s.canRedo) s.handleRedo();
+                    }
+                    break;
+                }
+                case "Escape": {
+                    if (customInputRef.current && document.activeElement === customInputRef.current) {
+                        customInputRef.current.blur();
+                        break;
+                    }
+                    if (s.detail) setDetail(null);
+                    else if (s.addOpen) s.closeSheet();
+                    else if (s.settingsOpen) setSettingsOpen(false);
+                    else if (s.helpOpen) setHelpOpen(false);
+                    else if (s.searchOpen) setSearchOpen(false);
+                    break;
+                }
+                default:
+                    break;
+            }
+        }
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [handleExportImage]); // stable — reads fresh values from keyStateRef
 
-      await new Promise<void>((resolve, reject) => {
-        const img = new Image()
-        img.onload = () => { ctx.drawImage(img, 0, 0); URL.revokeObjectURL(svgUrl); resolve() }
-        img.onerror = reject
-        img.src = svgUrl
-      })
-
-      // Draw lifeGLANCE branding watermark in bottom-left corner
-      const brandPad = 20
-      const brandY   = h + topInset - 24
-      ctx.save()
-      ctx.textBaseline = 'alphabetic'
-      ctx.font = `400 70px 'Courier Prime', 'Courier New', monospace`
-      const lifeW = ctx.measureText('life').width
-      ctx.fillStyle = '#E8E0D0'
-      ctx.fillText('life', brandPad, brandY)
-      ctx.font = `bold italic 75px 'Courier Prime', 'Courier New', monospace`
-      ctx.fillStyle = '#3D3580'
-      ctx.fillText('GLANCE', brandPad + lifeW, brandY)
-      ctx.restore()
-
-      canvas.toBlob(blob => {
-        const d = new Date()
-        const stamp = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-        const a = document.createElement('a')
-        a.download = `lifeglance-${stamp}.png`
-        a.href = URL.createObjectURL(blob)
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        setTimeout(() => URL.revokeObjectURL(a.href), 100)
-      }, 'image/png')
-    } catch (err) {
-      console.error('Export failed:', err)
+    // ── Helpers ──────────────────────────────────────────────────────────────────
+    function fmtBytes(n) {
+        if (n < 1024 ** 2) return `${(n / 1024).toFixed(0)} KB`;
+        if (n < 1024 ** 3) return `${(n / 1024 ** 2).toFixed(1)} MB`;
+        return `${(n / 1024 ** 3).toFixed(1)} GB`;
     }
-  }
 
-  // ── Backup ───────────────────────────────────────────────────────────────────
-  function handleSaveBackup() {
-    const json = JSON.stringify(milestones, null, 2)
-    const blob = new Blob([json], { type: 'application/json' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href     = url
-    const d    = new Date()
-    const stamp = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-    a.download = `lifeglance-${stamp}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  async function handleImportIcsFile(file) {
-    try {
-      const text = await file.text()
-      const result = parseIcs(text)
-      setIcsImport(result)
-    } catch (err) {
-      console.error('ICS parse failed:', err)
+    // ── Toast ────────────────────────────────────────────────────────────────────
+    function showToast(message: string, type: string = "error") {
+        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+        setToast({ message, type });
+        toastTimerRef.current = setTimeout(() => setToast(null), 5000);
     }
-  }
 
-  async function handleIcsImport(selected) {
-    const added = []
-    let failed = 0
-    for (const row of selected) {
-      try {
-        const m = await addMilestone({
-          title:          row.title,
-          date:           row.date,
-          date_precision: 'day',
-          category:       row.category,
-          note:           row.note,
-          url:            row.url,
-        })
-        added.push(m)
-      } catch (err) {
-        console.error('ICS import item failed:', err)
-        failed++
-      }
+    // ── CRUD ─────────────────────────────────────────────────────────────────────
+    async function executeSave(data: FrontendMilestoneSave, existing: FrontendMilestone | undefined) {
+        // mediaFile / mediaRemoved are transfer-only fields from the form — strip them
+        // before passing to the data layer, and handle blob persistence here.
+        const { mediaFile, mediaRemoved, ...milestoneData } = data;
+        const newMediaType = mediaFile ? (mediaFile.type.startsWith("video/") ? "video" : "audio") : null;
+
+        try {
+            if (existing) {
+                const mediaType = mediaFile ? newMediaType : mediaRemoved ? null : (existing.media_type ?? null);
+                const updated = await updateMilestone(
+                    existing.id,
+                    { ...milestoneData, media_type: mediaType },
+                    existing,
+                );
+                if (mediaFile) await dbPutMedia(updated.id, mediaFile, mediaFile.type);
+                const newMs = milestones.map((m) => (m.id === existing.id ? updated : m));
+                pushHistory(newMs);
+                setMilestones(newMs);
+                audio.playEditSave();
+            } else if (milestoneData.recurrence === "annual") {
+                // Generate one instance per year from base year to chosen end year (max +99)
+                const rid = uid();
+                const baseDate = new Date(milestoneData.date);
+                const baseYear = baseDate.getFullYear();
+                const endYear = Math.max(
+                    baseYear,
+                    Math.min(
+                        milestoneData.recurrenceEndYear ?? Math.max(baseYear, new Date().getFullYear()) + 3,
+                        baseYear + 99,
+                    ),
+                );
+                const created: FrontendMilestone[] = [];
+                for (let y = baseYear; y <= endYear; y++) {
+                    const d = new Date(baseDate);
+                    d.setFullYear(y);
+                    const m = await addMilestone({
+                        ...milestoneData,
+                        date: d,
+                        recurrence_id: rid,
+                        // only the base-year instance keeps the original note / photo / media / url
+                        note: y === baseYear ? milestoneData.note : "",
+                        photo_uri: y === baseYear ? milestoneData.photo_uri : "",
+                        media_type: y === baseYear ? newMediaType : null,
+                        url: y === baseYear ? milestoneData.url : "",
+                    });
+                    if (y === baseYear && mediaFile) await dbPutMedia(m.id, mediaFile, mediaFile.type);
+                    created.push(m);
+                }
+                const newMs = [...milestones, ...created];
+                pushHistory(newMs);
+                setMilestones(newMs);
+                setNewlyAddedId(created[0].id);
+                audio.playChime();
+            } else {
+                const m = await addMilestone({ ...milestoneData, media_type: newMediaType });
+                if (mediaFile) await dbPutMedia(m.id, mediaFile, mediaFile.type);
+                const newMs = [...milestones, m];
+                pushHistory(newMs);
+                setMilestones(newMs);
+                setNewlyAddedId(m.id);
+                audio.playChime();
+            }
+        } catch (e: unknown) {
+            const err = e as Error & { code?: number };
+            console.error("Save failed:", err);
+            const isQuota = err?.name === "QuotaExceededError" || err?.code === 22;
+            showToast(
+                isQuota
+                    ? "Storage full — export a backup to free space, then try again."
+                    : "Failed to save milestone. Please try again.",
+            );
+        }
     }
-    const newMs = [...milestones, ...added]
-    pushHistory(newMs)
-    setMilestones(newMs)
-    setIcsImport(null)
-    if (failed > 0) {
-      showToast(`${failed} event${failed > 1 ? 's' : ''} failed to import. ${added.length} imported successfully.`)
+
+    async function handleSave(data: FrontendMilestoneSave, existing: FrontendMilestone | undefined) {
+        audio.init(); // ensure AudioContext is running (form submit = user gesture)
+        const { mediaFile } = data;
+
+        if (mediaFile) {
+            let remaining = 0;
+            if (navigator.storage?.estimate) {
+                try {
+                    const { quota, usage } = await navigator.storage.estimate();
+                    remaining = (quota ?? 0) - (usage ?? 0);
+                    if (remaining < mediaFile.size) {
+                        showToast("Not enough storage space for this file. Free up space and try again.");
+                        return;
+                    }
+                } catch {
+                    /* estimate unavailable, proceed */
+                }
+            }
+            if (mediaFile.size > 50 * 1024 * 1024) {
+                setMediaConfirm({ data, existing, fileSize: mediaFile.size, remaining });
+                return;
+            }
+        }
+
+        await executeSave(data, existing);
     }
-  }
 
-  async function handleRestoreFile(e) {
-    const file = e.target.files[0]
-    if (!file) return
-    try {
-      const text     = await file.text()
-      const data     = JSON.parse(text)
-      const restored = await restoreMilestones(data)
-      setMilestones(restored)
-      historyRef.current = { stack: [restored], idx: 0 }
-      setCanUndo(false)
-      setCanRedo(false)
-    } catch (err) {
-      console.error('Restore failed:', err)
+    async function handleDelete(id: string) {
+        try {
+            await deleteMilestone(id);
+            const newMs = milestones.filter((m) => m.id !== id);
+            pushHistory(newMs);
+            setMilestones(newMs);
+        } catch (err) {
+            console.error("Delete failed:", err);
+            showToast("Failed to delete milestone. Please try again.");
+        }
     }
-    e.target.value = ''
-  }
 
-  const isEmpty = filteredMilestones.length === 0 && milestones.length === 0
-  const customHalfMs = customYears * 365.25 * 24 * 3600 * 1000
+    async function handleDeleteSeries(recurrence_id: string) {
+        try {
+            const toDelete = milestones.filter((m) => m.recurrence_id === recurrence_id);
+            for (const m of toDelete) await deleteMilestone(m.id);
+            const newMs = milestones.filter((m) => m.recurrence_id !== recurrence_id);
+            pushHistory(newMs);
+            setMilestones(newMs);
+        } catch (err) {
+            console.error("Delete series failed:", err);
+            showToast("Failed to delete recurring series. Please try again.");
+        }
+    }
 
-  return (
-    <div className="timeline-view">
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="timeline-header">
-        {/* Left: logo */}
-        <div className="logo logo-sm">
-          <span className="logo-life">life</span>
-          <span className="logo-glance">GLANCE</span>
-        </div>
+    function openEdit(m: FrontendMilestone) {
+        setEditTarget(m);
+        setAddOpen(true);
+    }
+    function closeSheet() {
+        setAddOpen(false);
+        setEditTarget(null);
+    }
 
-        {/* Center: zoom row + view picker */}
-        <div className="header-center">
-          {compactHeader ? (
-            /* Single row on narrow screens: zoom ▾  |  past ↺  |  rec: next */
-            <div className="compact-controls-row">
-              <div className="zoom-dropdown-wrap" onClick={e => e.stopPropagation()}>
-                <button
-                  className="zoom-tab active zoom-dropdown-btn"
-                  onClick={() => setZoomOpen(o => !o)}>
-                  {zoom === 'custom' ? 'custom' : zoom} ▾
-                </button>
-                {zoomOpen && (
-                  <div className="zoom-dropdown">
-                    {[...ZOOM_LEVELS, 'custom'].map(z => (
-                      <button key={z}
-                        className={`zoom-dropdown-item ${zoom === z ? 'active' : ''}`}
-                        onClick={() => { handleZoom(z); setZoomOpen(false) }}>
-                        {z}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {zoom === 'custom' && (
-                <div className="custom-zoom-row">
-                  <span>±</span>
-                  <input ref={customInputRef} autoFocus
-                    className="custom-zoom-input" type="number" min="1" max="200"
-                    value={customYears}
-                    onChange={e => {
-                      const v = parseInt(e.target.value, 10)
-                      if (!isNaN(v)) setCustomYears(Math.max(1, Math.min(200, v)))
-                    }} />
-                  <span>yr</span>
+    // ── Backup ───────────────────────────────────────────────────────────────────
+    function handleSaveBackup() {
+        const json = JSON.stringify(milestones, null, 2);
+        const blob = new Blob([json], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const d = new Date();
+        const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        a.download = `lifeglance-${stamp}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    async function handleImportIcsFile(file) {
+        try {
+            const text = await file.text();
+            const result = parseIcs(text);
+            setIcsImport(result);
+        } catch (err) {
+            console.error("ICS parse failed:", err);
+        }
+    }
+
+    async function handleIcsImport(selected) {
+        const added: FrontendMilestone[] = [];
+        let failed = 0;
+        for (const row of selected) {
+            try {
+                const m = await addMilestone({
+                    title: row.title,
+                    date: row.date,
+                    date_precision: "day",
+                    category: row.category,
+                    note: row.note,
+                    url: row.url,
+                });
+                added.push(m);
+            } catch (err) {
+                console.error("ICS import item failed:", err);
+                failed++;
+            }
+        }
+        const newMs = [...milestones, ...added];
+        pushHistory(newMs);
+        setMilestones(newMs);
+        setIcsImport(null);
+        if (failed > 0) {
+            showToast(
+                `${failed} event${failed > 1 ? "s" : ""} failed to import. ${added.length} imported successfully.`,
+            );
+        }
+    }
+
+    async function handleRestoreFile(file: File) {
+        try {
+            const text = await file.text();
+            const data = JSON.parse(text);
+            const restored = await restoreMilestones(data);
+            setMilestones(restored);
+            historyRef.current = { stack: [restored], idx: 0 };
+            setCanUndo(false);
+            setCanRedo(false);
+        } catch (err) {
+            console.error("Restore failed:", err);
+        }
+    }
+
+    const isEmpty = filteredMilestones.length === 0 && milestones.length === 0;
+    const customHalfMs = customYears * 365.25 * 24 * 3600 * 1000;
+
+    return (
+        <div className="timeline-view">
+            {/* ── Header ─────────────────────────────────────────────────────────── */}
+            <div className="timeline-header">
+                {/* Left: logo */}
+                <div className="logo logo-sm">
+                    <span className="logo-life">life</span>
+                    <span className="logo-glance">GLANCE</span>
                 </div>
-              )}
-              <button
-                className="zoom-tab active view-cycle-btn"
-                onClick={() => handleViewMode(
-                  viewMode === 'past' ? 'all' : viewMode === 'all' ? 'future' : 'past'
-                )}>
-                {viewMode} ↺
-              </button>
-              {hasRecurring && (
-                <button
-                  className={`recur-filter-btn${recurFilter !== 'next' ? ' active' : ''}`}
-                  onClick={cycleRecurFilter}>
-                  rec: {recurFilter}
-                </button>
-              )}
+
+                {/* Center: zoom row + view picker */}
+                <div className="header-center">
+                    {compactHeader ? (
+                        /* Single row on narrow screens: zoom ▾  |  past ↺  |  rec: next */
+                        <div className="compact-controls-row">
+                            <div className="zoom-dropdown-wrap" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                    type="button"
+                                    className="zoom-tab active zoom-dropdown-btn"
+                                    onClick={() => setZoomOpen((o) => !o)}
+                                >
+                                    {zoom === "custom" ? "custom" : zoom} ▾
+                                </button>
+                                {zoomOpen && (
+                                    <div className="zoom-dropdown">
+                                        {[...ZOOM_LEVELS, "custom"].map((z) => (
+                                            <button
+                                                key={z}
+                                                type="button"
+                                                className={`zoom-dropdown-item ${zoom === z ? "active" : ""}`}
+                                                onClick={() => {
+                                                    handleZoom(z);
+                                                    setZoomOpen(false);
+                                                }}
+                                            >
+                                                {z}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            {zoom === "custom" && (
+                                <div className="custom-zoom-row">
+                                    <span>±</span>
+                                    <input
+                                        ref={customInputRef}
+                                        autoFocus
+                                        className="custom-zoom-input"
+                                        type="number"
+                                        min="1"
+                                        max="200"
+                                        value={customYears}
+                                        onChange={(e) => {
+                                            const v = parseInt(e.target.value, 10);
+                                            if (!Number.isNaN(v)) setCustomYears(Math.max(1, Math.min(200, v)));
+                                        }}
+                                    />
+                                    <span>yr</span>
+                                </div>
+                            )}
+                            <button
+                                type="button"
+                                className="zoom-tab active view-cycle-btn"
+                                onClick={() =>
+                                    handleViewMode(viewMode === "past" ? "all" : viewMode === "all" ? "future" : "past")
+                                }
+                            >
+                                {viewMode} ↺
+                            </button>
+                            {hasRecurring && (
+                                <button
+                                    type="button"
+                                    className={`recur-filter-btn${recurFilter !== "next" ? " active" : ""}`}
+                                    onClick={cycleRecurFilter}
+                                >
+                                    rec: {recurFilter}
+                                </button>
+                            )}
+                        </div>
+                    ) : (
+                        <>
+                            <div className="zoom-row">
+                                <div className="zoom-tabs">
+                                    {ZOOM_LEVELS.map((z) => (
+                                        <button
+                                            key={z}
+                                            type="button"
+                                            className={`zoom-tab ${zoom === z ? "active" : ""}`}
+                                            onClick={() => handleZoom(z)}
+                                        >
+                                            {z}
+                                        </button>
+                                    ))}
+                                    <button
+                                        type="button"
+                                        className={`zoom-tab ${zoom === "custom" ? "active" : ""}`}
+                                        onClick={() => handleZoom("custom")}
+                                    >
+                                        custom
+                                    </button>
+                                </div>
+                                <div className="zoom-indicator">
+                                    {zoom === "custom" ? (
+                                        <div className="custom-zoom-row">
+                                            <span>±</span>
+                                            <input
+                                                ref={customInputRef}
+                                                autoFocus
+                                                className="custom-zoom-input"
+                                                type="number"
+                                                min="1"
+                                                max="200"
+                                                value={customYears}
+                                                onChange={(e) => {
+                                                    const v = parseInt(e.target.value, 10);
+                                                    if (!Number.isNaN(v)) setCustomYears(Math.max(1, Math.min(200, v)));
+                                                }}
+                                            />
+                                            <span>yr</span>
+                                        </div>
+                                    ) : (
+                                        <TypewriterText
+                                            key={zoom}
+                                            text={`viewing: ${zoom}`}
+                                            options={{ delay: 38, jitter: 18 }}
+                                            showCursor={false}
+                                            hideCursorWhenDone
+                                        />
+                                    )}
+                                </div>
+                            </div>
+                            <div className="view-tabs-row">
+                                <div className="view-tabs">
+                                    {[
+                                        ["past", "← past"],
+                                        ["all", "← all →"],
+                                        ["future", "future →"],
+                                    ].map(([mode, label]) => (
+                                        <button
+                                            key={mode}
+                                            type="button"
+                                            className={`view-tab ${viewMode === mode ? "active" : ""}`}
+                                            onClick={() => handleViewMode(mode)}
+                                        >
+                                            {label}
+                                        </button>
+                                    ))}
+                                </div>
+                                {hasRecurring && (
+                                    <button
+                                        type="button"
+                                        className={`recur-filter-btn${recurFilter !== "next" ? " active" : ""}`}
+                                        onClick={cycleRecurFilter}
+                                    >
+                                        recurring: {recurFilter}
+                                    </button>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </div>
+
+                {/* Right: stats + settings + help */}
+                <div className="header-right">
+                    <button type="button" className="action-link" onClick={() => setSummaryOpen(true)}>
+                        stats
+                    </button>
+                    <span className="action-sep">|</span>
+                    <button type="button" className="action-link" onClick={() => setSettingsOpen(true)}>
+                        settings
+                    </button>
+                    <span className="action-sep">|</span>
+                    <button type="button" className="action-link" onClick={() => setHelpOpen(true)}>
+                        ?
+                    </button>
+                </div>
             </div>
-          ) : (
-            <>
-              <div className="zoom-row">
-                <div className="zoom-tabs">
-                  {ZOOM_LEVELS.map(z => (
-                    <button key={z}
-                      className={`zoom-tab ${zoom === z ? 'active' : ''}`}
-                      onClick={() => handleZoom(z)}>{z}</button>
-                  ))}
-                  <button
-                    className={`zoom-tab ${zoom === 'custom' ? 'active' : ''}`}
-                    onClick={() => handleZoom('custom')}>custom</button>
+
+            {/* ── Body ───────────────────────────────────────────────────────────── */}
+            <div className="timeline-body" ref={bodyRef}>
+                {!isEmpty && (
+                    <StatsPanel
+                        past={past}
+                        future={future}
+                        pastIdx={pastIdx}
+                        futureIdx={futureIdx}
+                        onPastChange={handlePastNav}
+                        onFutureChange={handleFutureNav}
+                        viewMode={viewMode}
+                        compact={compactStats}
+                    />
+                )}
+
+                <div ref={zoomWrapRef} className={`timeline-zoom-wrap ${zoomAnim}`}>
+                    <Timeline
+                        ref={timelineRef}
+                        milestones={filteredMilestones}
+                        zoom={zoom}
+                        textSize={textSize}
+                        customHalfMs={customHalfMs}
+                        highlightedIds={highlightedIds}
+                        onMilestoneClick={handleMilestoneClick}
+                        panMs={panMs}
+                        onPanMs={setPanMs}
+                        viewMode={viewMode}
+                        onClusterClick={handleClusterClick}
+                        clustering={clustering}
+                        birthday={birthday}
+                        newlyAddedId={newlyAddedId}
+                        ultraCompact={ultraCompact}
+                    />
                 </div>
-                <div className="zoom-indicator">
-                  {zoom === 'custom' ? (
-                    <div className="custom-zoom-row">
-                      <span>±</span>
-                      <input ref={customInputRef} autoFocus
-                        className="custom-zoom-input" type="number" min="1" max="200"
-                        value={customYears}
-                        onChange={e => {
-                          const v = parseInt(e.target.value, 10)
-                          if (!isNaN(v)) setCustomYears(Math.max(1, Math.min(200, v)))
-                        }} />
-                      <span>yr</span>
+
+                {isEmpty && (
+                    <div className="empty-state">
+                        <div className="empty-state-label">
+                            no milestones yet.
+                            <br />
+                            add one to start your timeline.
+                        </div>
                     </div>
-                  ) : (
-                    <TypewriterText key={zoom} text={`viewing: ${zoom}`}
-                      options={{ delay: 38, jitter: 18 }} showCursor={false} hideCursorWhenDone />
-                  )}
-                </div>
-              </div>
-              <div className="view-tabs-row">
-                <div className="view-tabs">
-                  {[['past', '← past'], ['all', '← all →'], ['future', 'future →']].map(([mode, label]) => (
-                    <button key={mode}
-                      className={`view-tab ${viewMode === mode ? 'active' : ''}`}
-                      onClick={() => handleViewMode(mode)}>{label}</button>
-                  ))}
-                </div>
-                {hasRecurring && (
-                  <button
-                    className={`recur-filter-btn${recurFilter !== 'next' ? ' active' : ''}`}
-                    onClick={cycleRecurFilter}>
-                    recurring: {recurFilter}
-                  </button>
                 )}
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Right: stats + settings + help */}
-        <div className="header-right">
-          <button className="action-link" onClick={() => setSummaryOpen(true)}>stats</button>
-          <span className="action-sep">|</span>
-          <button className="action-link" onClick={() => setSettingsOpen(true)}>settings</button>
-          <span className="action-sep">|</span>
-          <button className="action-link" onClick={() => setHelpOpen(true)}>?</button>
-        </div>
-      </div>
-
-      {/* ── Body ───────────────────────────────────────────────────────────── */}
-      <div className="timeline-body" ref={bodyRef}>
-        {!isEmpty && (
-          <StatsPanel
-            past={past} future={future}
-            pastIdx={pastIdx} futureIdx={futureIdx}
-            onPastChange={handlePastNav}
-            onFutureChange={handleFutureNav}
-            viewMode={viewMode}
-            compact={compactStats}
-          />
-        )}
-
-        <div ref={zoomWrapRef} className={`timeline-zoom-wrap ${zoomAnim}`}>
-          <Timeline
-            ref={timelineRef}
-            milestones={filteredMilestones}
-            zoom={zoom}
-            textSize={textSize}
-            customHalfMs={customHalfMs}
-            highlightedIds={highlightedIds}
-            onMilestoneClick={handleMilestoneClick}
-            panMs={panMs}
-            onPanMs={setPanMs}
-            viewMode={viewMode}
-            onClusterClick={handleClusterClick}
-            clustering={clustering}
-            birthday={birthday}
-            newlyAddedId={newlyAddedId}
-            ultraCompact={ultraCompact}
-          />
-        </div>
-
-        {isEmpty && (
-          <div className="empty-state">
-            <div className="empty-state-label">
-              no milestones yet.<br />add one to start your timeline.
+                {!isEmpty && filteredMilestones.length === 0 && (
+                    <div className="empty-state">
+                        <div className="empty-state-label">no milestones in this category.</div>
+                    </div>
+                )}
             </div>
-          </div>
-        )}
-        {!isEmpty && filteredMilestones.length === 0 && (
-          <div className="empty-state">
-            <div className="empty-state-label">no milestones in this category.</div>
-          </div>
-        )}
-      </div>
 
-      {/* ── Minimap ────────────────────────────────────────────────────────── */}
-      {!isEmpty && (
-        <MinimapBar
-          milestones={filteredMilestones}
-          panMs={panMs}
-          onPanDirect={setPanMs}
-          panToMs={(ms) => timelineRef.current?.panToMs(ms)}
-          zoom={zoom}
-          customHalfMs={customHalfMs}
-          viewMode={viewMode}
-        />
-      )}
+            {/* ── Minimap ────────────────────────────────────────────────────────── */}
+            {!isEmpty && (
+                <MinimapBar
+                    milestones={filteredMilestones}
+                    panMs={panMs}
+                    onPanDirect={setPanMs}
+                    panToMs={(ms) => timelineRef.current?.panToMs(ms)}
+                    zoom={zoom}
+                    customHalfMs={customHalfMs}
+                    viewMode={viewMode}
+                />
+            )}
 
-      {/* ── Bottom bar ─────────────────────────────────────────────────────── */}
-      <div className="timeline-bottom">
-        <button className="add-milestone-btn" onClick={() => setAddOpen(true)}>
-          + add milestone
-        </button>
-
-        {presentCategories.length > 0 && (
-          compactFilter ? (
-            <div className="filter-compact" onClick={e => e.stopPropagation()}>
-              <button className={`filter-chip ${filter === 'all' ? 'active' : ''}`}
-                onClick={() => { setFilter('all'); setFilterOpen(false) }}>all</button>
-              <div className="filter-dropdown-wrap">
-                <button
-                  className={`filter-chip filter-dropdown-btn ${filter !== 'all' ? 'active' : ''}`}
-                  onClick={() => setFilterOpen(o => !o)}>
-                  {filter !== 'all' ? (
-                    <>
-                      <span className="filter-dot"
-                        style={{ background: presentCategories.find(c => c.id === filter)?.color }} />
-                      {presentCategories.find(c => c.id === filter)?.label}
-                    </>
-                  ) : 'category'} ▾
+            {/* ── Bottom bar ─────────────────────────────────────────────────────── */}
+            <div className="timeline-bottom">
+                <button type="button" className="add-milestone-btn" onClick={() => setAddOpen(true)}>
+                    + add milestone
                 </button>
-                {filterOpen && (
-                  <div className="filter-dropdown">
-                    {presentCategories.map(cat => (
-                      <button key={cat.id}
-                        className={`filter-dropdown-item ${filter === cat.id ? 'active' : ''}`}
-                        onClick={() => { setFilter(cat.id); setFilterOpen(false) }}>
-                        <span className="filter-dot" style={{ background: cat.color }} />
-                        {cat.label}
-                      </button>
+
+                {presentCategories.length > 0 &&
+                    (compactFilter ? (
+                        <div className="filter-compact" onClick={(e) => e.stopPropagation()}>
+                            <button
+                                type="button"
+                                className={`filter-chip ${filter === "all" ? "active" : ""}`}
+                                onClick={() => {
+                                    setFilter("all");
+                                    setFilterOpen(false);
+                                }}
+                            >
+                                all
+                            </button>
+                            <div className="filter-dropdown-wrap">
+                                <button
+                                    type="button"
+                                    className={`filter-chip filter-dropdown-btn ${filter !== "all" ? "active" : ""}`}
+                                    onClick={() => setFilterOpen((o) => !o)}
+                                >
+                                    {filter !== "all" ? (
+                                        <>
+                                            <span
+                                                className="filter-dot"
+                                                style={{
+                                                    background: presentCategories.find((c) => c.id === filter)?.color,
+                                                }}
+                                            />
+                                            {presentCategories.find((c) => c.id === filter)?.label}
+                                        </>
+                                    ) : (
+                                        "category"
+                                    )}{" "}
+                                    ▾
+                                </button>
+                                {filterOpen && (
+                                    <div className="filter-dropdown">
+                                        {presentCategories.map((cat) => (
+                                            <button
+                                                key={cat.id}
+                                                type="button"
+                                                className={`filter-dropdown-item ${filter === cat.id ? "active" : ""}`}
+                                                onClick={() => {
+                                                    setFilter(cat.id);
+                                                    setFilterOpen(false);
+                                                }}
+                                            >
+                                                <span className="filter-dot" style={{ background: cat.color }} />
+                                                {cat.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="filter-chips-inline">
+                            <button
+                                type="button"
+                                className={`filter-chip ${filter === "all" ? "active" : ""}`}
+                                onClick={() => setFilter("all")}
+                            >
+                                all
+                            </button>
+                            {presentCategories.map((cat) => (
+                                <button
+                                    key={cat.id}
+                                    type="button"
+                                    className={`filter-chip ${filter === cat.id ? "active" : ""}`}
+                                    onClick={() => setFilter(filter === cat.id ? "all" : cat.id)}
+                                >
+                                    <span className="filter-dot" style={{ background: cat.color }} />
+                                    {cat.label}
+                                </button>
+                            ))}
+                        </div>
                     ))}
-                  </div>
+
+                {onThisDayItems.length > 0 && (
+                    <button type="button" className="today-btn otd-btn" onClick={() => setOnThisDayOpen(true)}>
+                        on this day
+                    </button>
                 )}
-              </div>
-            </div>
-          ) : (
-            <div className="filter-chips-inline">
-              <button className={`filter-chip ${filter === 'all' ? 'active' : ''}`}
-                onClick={() => setFilter('all')}>all</button>
-              {presentCategories.map(cat => (
-                <button key={cat.id}
-                  className={`filter-chip ${filter === cat.id ? 'active' : ''}`}
-                  onClick={() => setFilter(filter === cat.id ? 'all' : cat.id)}>
-                  <span className="filter-dot" style={{ background: cat.color }} />
-                  {cat.label}
+                <button type="button" className="today-btn" onClick={handleJumpToToday}>
+                    jump to today
                 </button>
-              ))}
             </div>
-          )
-        )}
 
-        {onThisDayItems.length > 0 && (
-          <button className="today-btn otd-btn" onClick={() => setOnThisDayOpen(true)}>
-            on this day
-          </button>
-        )}
-        <button className="today-btn" onClick={handleJumpToToday}>
-          jump to today
-        </button>
-      </div>
-
-      {/* ── Sheets ─────────────────────────────────────────────────────────── */}
-      {addOpen && (
-        <AddMilestoneSheet
-          onSave={handleSave} onClose={closeSheet} existing={editTarget}
-          categories={categories}
-        />
-      )}
-      {detail && (
-        <MilestoneDetail
-          milestone={detail}
-          onClose={() => setDetail(null)}
-          onEdit={openEdit}
-          onDelete={handleDelete}
-          onDeleteSeries={handleDeleteSeries}
-          birthday={birthday}
-        />
-      )}
-      {searchOpen && (
-        <SearchModal
-          milestones={milestones}
-          onSelect={handleSearchSelect}
-          onClose={() => setSearchOpen(false)}
-        />
-      )}
-      {helpOpen && (
-        <HelpModal onClose={() => setHelpOpen(false)} />
-      )}
-      {summaryOpen && (
-        <SummaryModal
-          milestones={milestones}
-          onClose={() => setSummaryOpen(false)}
-        />
-      )}
-      {onThisDayOpen && (
-        <OnThisDayModal
-          items={onThisDayItems}
-          onClose={() => setOnThisDayOpen(false)}
-          onSelect={m => { setOnThisDayOpen(false); setDetail(m) }}
-        />
-      )}
-      {settingsOpen && (
-        <SettingsModal
-          textSize={textSize}       onTextSizeChange={setTextSize}
-          ultraCompact={ultraCompact}
-          categories={categories}   onCategoriesChange={setCategories}
-          clustering={clustering}   onClusteringChange={v => {
-            setClustering(v)
-            localStorage.setItem('lifeglance-clustering', String(v))
-          }}
-          birthday={birthday}       onBirthdayChange={v => {
-            setBirthday(v)
-            localStorage.setItem('lifeglance-birthday', v)
-          }}
-          milestones={milestones}
-          onExportImage={handleExportImage}
-          onSaveBackup={handleSaveBackup}
-          onRestoreFile={handleRestoreFile}
-          onImportIcsFile={handleImportIcsFile}
-          onClose={() => setSettingsOpen(false)}
-        />
-      )}
-      {icsImport && (
-        <IcsImportModal
-          candidates={icsImport.candidates}
-          timedCount={icsImport.timedCount}
-          categories={categories}
-          onImport={handleIcsImport}
-          onClose={() => setIcsImport(null)}
-        />
-      )}
-      {mediaConfirm && (
-        <div className="sheet-overlay" onClick={e => e.target === e.currentTarget && setMediaConfirm(null)}>
-          <div className="media-confirm-modal">
-            <p className="media-confirm-title">large file</p>
-            <p className="media-confirm-body">
-              This file is <strong>{fmtBytes(mediaConfirm.fileSize)}</strong>.
-              {mediaConfirm.remaining != null && (
-                <> You have <strong>{fmtBytes(mediaConfirm.remaining)}</strong> of storage remaining.</>
-              )}
-            </p>
-            <div className="media-confirm-actions">
-              <button className="btn" onClick={() => setMediaConfirm(null)}>cancel</button>
-              <button className="btn btn-filled" onClick={async () => {
-                const { data, existing } = mediaConfirm
-                setMediaConfirm(null)
-                await executeSave(data, existing)
-              }}>attach anyway</button>
-            </div>
-          </div>
+            {/* ── Sheets ─────────────────────────────────────────────────────────── */}
+            {addOpen && (
+                <AddMilestoneSheet
+                    onSave={handleSave}
+                    onClose={closeSheet}
+                    existing={editTarget ?? undefined}
+                    categories={categories}
+                />
+            )}
+            {detail && (
+                <MilestoneDetail
+                    milestone={detail}
+                    onClose={() => setDetail(null)}
+                    onEdit={openEdit}
+                    onDelete={handleDelete}
+                    onDeleteSeries={handleDeleteSeries}
+                    birthday={birthday}
+                />
+            )}
+            {searchOpen && (
+                <SearchModal
+                    milestones={milestones}
+                    onSelect={handleSearchSelect}
+                    onClose={() => setSearchOpen(false)}
+                />
+            )}
+            {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
+            {summaryOpen && <SummaryModal milestones={milestones} onClose={() => setSummaryOpen(false)} />}
+            {onThisDayOpen && (
+                <OnThisDayModal
+                    items={onThisDayItems}
+                    onClose={() => setOnThisDayOpen(false)}
+                    onSelect={(m) => {
+                        setOnThisDayOpen(false);
+                        setDetail(m);
+                    }}
+                />
+            )}
+            {settingsOpen && (
+                <SettingsModal
+                    textSize={textSize}
+                    onTextSizeChange={setTextSize}
+                    ultraCompact={ultraCompact}
+                    categories={categories}
+                    onCategoriesChange={setCategories}
+                    clustering={clustering}
+                    onClusteringChange={(v) => {
+                        setClustering(v);
+                        localStorage.setItem("lifeglance-clustering", String(v));
+                    }}
+                    birthday={birthday}
+                    onBirthdayChange={(v) => {
+                        setBirthday(v);
+                        localStorage.setItem("lifeglance-birthday", v);
+                    }}
+                    milestones={milestones}
+                    onExportImage={handleExportImage}
+                    onSaveBackup={handleSaveBackup}
+                    onRestoreFile={handleRestoreFile}
+                    onImportIcsFile={handleImportIcsFile}
+                    onClose={() => setSettingsOpen(false)}
+                />
+            )}
+            {icsImport && (
+                <IcsImportModal
+                    candidates={icsImport.candidates}
+                    timedCount={icsImport.timedCount}
+                    categories={categories}
+                    onImport={handleIcsImport}
+                    onClose={() => setIcsImport(null)}
+                />
+            )}
+            {mediaConfirm && (
+                <div className="sheet-overlay" onClick={(e) => e.target === e.currentTarget && setMediaConfirm(null)}>
+                    <div className="media-confirm-modal">
+                        <p className="media-confirm-title">large file</p>
+                        <p className="media-confirm-body">
+                            This file is <strong>{fmtBytes(mediaConfirm.fileSize)}</strong>.
+                            {mediaConfirm.remaining != null && (
+                                <>
+                                    {" "}
+                                    You have <strong>{fmtBytes(mediaConfirm.remaining)}</strong> of storage remaining.
+                                </>
+                            )}
+                        </p>
+                        <div className="media-confirm-actions">
+                            <button type="button" className="btn" onClick={() => setMediaConfirm(null)}>
+                                cancel
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-filled"
+                                onClick={async () => {
+                                    const { data, existing } = mediaConfirm;
+                                    setMediaConfirm(null);
+                                    await executeSave(data, existing);
+                                }}
+                            >
+                                attach anyway
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {toast && (
+                <div className={`toast toast-${toast.type}`} role="alert" onClick={() => setToast(null)}>
+                    {toast.message}
+                </div>
+            )}
         </div>
-      )}
-      {toast && (
-        <div className={`toast toast-${toast.type}`} role="alert" onClick={() => setToast(null)}>
-          {toast.message}
-        </div>
-      )}
-    </div>
-  )
+    );
 }
