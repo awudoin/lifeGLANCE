@@ -103,13 +103,18 @@ export default function AddMilestoneSheet({
         try {
             const date = buildDateFromParts(month, year, precision, day);
             const selectedCat = categories.find((c) => c.id === category);
+            const recurrenceEndYear =
+                !isEdit && recurrence && year.length >= 4
+                    ? recEndYear
+                        ? Number(recEndYear)
+                        : Math.max(Number(year), new Date().getFullYear()) + 3
+                    : undefined;
             await onSave(
                 {
                     title: title.trim(),
                     date,
                     date_precision: precision,
                     category,
-                    color: selectedCat?.color,
                     note: note.trim(),
                     photo_uri: photoUri,
                     mediaFile,
@@ -117,12 +122,8 @@ export default function AddMilestoneSheet({
                     url: url.trim(),
                     recurrence: !isEdit && recurrence ? "annual" : (existing?.recurrence ?? null),
                     recurrence_id: existing?.recurrence_id ?? null,
-                    recurrenceEndYear:
-                        !isEdit && recurrence && year.length >= 4
-                            ? recEndYear
-                                ? Number(recEndYear)
-                                : Math.max(Number(year), new Date().getFullYear()) + 3
-                            : undefined,
+                    ...(selectedCat?.color ? { color: selectedCat.color } : {}),
+                    ...(recurrenceEndYear === undefined ? {} : { recurrenceEndYear }),
                 },
                 existing,
             );

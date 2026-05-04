@@ -910,10 +910,10 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                         date: d,
                         recurrence_id: rid,
                         // only the base-year instance keeps the original note / photo / media / url
-                        note: y === baseYear ? milestoneData.note : "",
-                        photo_uri: y === baseYear ? milestoneData.photo_uri : "",
+                        note: y === baseYear ? (milestoneData.note ?? "") : "",
+                        photo_uri: y === baseYear ? (milestoneData.photo_uri ?? "") : "",
                         media_type: y === baseYear ? newMediaType : null,
-                        url: y === baseYear ? milestoneData.url : "",
+                        url: y === baseYear ? (milestoneData.url ?? "") : "",
                     });
                     if (y === baseYear && mediaFile)
                         await dbPutMedia(m.id, mediaFile, mediaFile.type);
@@ -1467,7 +1467,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                 <AddMilestoneSheet
                     onSave={handleSave}
                     onClose={closeSheet}
-                    existing={editTarget ?? undefined}
+                    {...(editTarget ? { existing: editTarget } : {})}
                     categories={categories}
                 />
             )}

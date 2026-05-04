@@ -53,7 +53,12 @@ function useIndexedDBEstimate() {
         if (!navigator.storage?.estimate) return;
         navigator.storage
             .estimate()
-            .then(({ usage, quota }) => setEst({ usage, quota }))
+            .then(({ usage, quota }) =>
+                setEst({
+                    ...(usage === undefined ? {} : { usage }),
+                    ...(quota === undefined ? {} : { quota }),
+                }),
+            )
             .catch(() => {});
     }, []);
     return est;

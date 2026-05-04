@@ -40,7 +40,7 @@ export interface FrontendMilestoneInput {
 export type FrontendMilestoneSave = FrontendMilestoneInput & {
     mediaFile: File | null;
     mediaRemoved: boolean;
-    recurrenceEndYear: number | undefined;
+    recurrenceEndYear?: number;
 };
 
 export interface ServerMilestone {
