@@ -1,7 +1,3 @@
-/** biome-ignore-all lint/a11y/useKeyWithClickEvents: Quick hack -> need to fix */
-/** biome-ignore-all lint/a11y/noAutofocus: Quick hack -> need to fix */
-/** biome-ignore-all lint/a11y/noStaticElementInteractions: Quick hack -> need to fix*/
-
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { dbPutMedia } from "../../data/db";
 import { addMilestone, deleteMilestone, restoreMilestones, uid, updateMilestone } from "../../data/milestones";
@@ -12,6 +8,7 @@ import type {
     IcsCandidate,
     IcsParseResult,
 } from "../../data/types";
+import { useOverlayClick } from "../../hooks/useOverlayClick";
 import * as audio from "../../utils/audio";
 import { loadCategories } from "../../utils/colors";
 import { parseIcs } from "../../utils/icsParser";
@@ -31,7 +28,14 @@ import OnThisDayModal from "./OnThisDayModal";
 import type { TimelineHandle } from "./Timeline";
 import Timeline from "./Timeline";
 
-const ZOOM_RANK = { decades: 5, "30yr": 4, years: 3, months: 2, weeks: 1, custom: 3.5 };
+const ZOOM_RANK = {
+    decades: 5,
+    "30yr": 4,
+    years: 3,
+    months: 2,
+    weeks: 1,
+    custom: 3.5,
+};
 
 const TEXT_SIZES = {
     small: "19px",
@@ -128,12 +132,22 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
 
     const timelineRef = useRef<TimelineHandle | null>(null);
     const zoomWrapRef = useRef<HTMLDivElement | null>(null);
+    const compactZoomRef = useRef<HTMLDivElement | null>(null);
+    const compactFilterRef = useRef<HTMLDivElement | null>(null);
+    const mediaConfirmOverlayRef = useRef<HTMLDivElement | null>(null);
     const bodyRef = useRef<HTMLDivElement | null>(null);
     const zoomRef = useRef<ZoomLevel | "custom">("years");
     const zoomLocked = useRef(false);
     const customInputRef = useRef<HTMLInputElement>(null);
     const historyRef = useRef<{ stack: FrontendMilestone[][]; idx: number }>(null); // { stack: Milestone[][], idx: number }
     const toastTimerRef = useRef<number>(null);
+
+    useOverlayClick({
+        ref: mediaConfirmOverlayRef,
+        callback: () => {
+            if (mediaConfirm) setMediaConfirm(null);
+        },
+    });
 
     // Apply font size globally
     useEffect(() => {
@@ -150,9 +164,12 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
 
     useEffect(() => {
         if (!zoomOpen) return;
-        const close = () => setZoomOpen(false);
-        document.addEventListener("click", close);
-        return () => document.removeEventListener("click", close);
+        const close = (event: MouseEvent) => {
+            if (compactZoomRef.current?.contains(event.target as Node)) return;
+            setZoomOpen(false);
+        };
+        document.addEventListener("mousedown", close);
+        return () => document.removeEventListener("mousedown", close);
     }, [zoomOpen]);
 
     useEffect(() => {
@@ -164,10 +181,19 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
 
     useEffect(() => {
         if (!filterOpen) return;
-        const close = () => setFilterOpen(false);
-        document.addEventListener("click", close);
-        return () => document.removeEventListener("click", close);
+        const close = (event: MouseEvent) => {
+            if (compactFilterRef.current?.contains(event.target as Node)) return;
+            setFilterOpen(false);
+        };
+        document.addEventListener("mousedown", close);
+        return () => document.removeEventListener("mousedown", close);
     }, [filterOpen]);
+
+    useEffect(() => {
+        if (zoom === "custom") {
+            customInputRef.current?.focus();
+        }
+    }, [zoom]);
 
     useEffect(() => {
         const mq = window.matchMedia("(max-width: 768px), (max-height: 600px)");
@@ -500,7 +526,9 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
             }
 
             const svgStr = new XMLSerializer().serializeToString(clone);
-            const svgBlob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
+            const svgBlob = new Blob([svgStr], {
+                type: "image/svg+xml;charset=utf-8",
+            });
             const svgUrl = URL.createObjectURL(svgBlob);
 
             const canvas = document.createElement("canvas");
@@ -648,7 +676,6 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                         customInputRef.current?.focus();
                     } else {
                         handleZoomRef.current("custom");
-                        // autoFocus fires when the input mounts
                     }
                     break;
                 }
@@ -698,7 +725,6 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                         customInputRef.current?.focus();
                     } else {
                         handleZoomRef.current("custom");
-                        // autoFocus fires when the input mounts after the zoom animation
                     }
                     break;
                 }
@@ -828,7 +854,10 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                 setNewlyAddedId(created[0].id);
                 audio.playChime();
             } else {
-                const m = await addMilestone({ ...milestoneData, media_type: newMediaType });
+                const m = await addMilestone({
+                    ...milestoneData,
+                    media_type: newMediaType,
+                });
                 if (mediaFile) await dbPutMedia(m.id, mediaFile, mediaFile.type);
                 const newMs = [...milestones, m];
                 pushHistory(newMs);
@@ -867,7 +896,12 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                 }
             }
             if (mediaFile.size > 50 * 1024 * 1024) {
-                setMediaConfirm({ data, existing, fileSize: mediaFile.size, remaining });
+                setMediaConfirm({
+                    data,
+                    existing,
+                    fileSize: mediaFile.size,
+                    remaining,
+                });
                 return;
             }
         }
@@ -995,7 +1029,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                     {compactHeader ? (
                         /* Single row on narrow screens: zoom ▾  |  past ↺  |  rec: next */
                         <div className="compact-controls-row">
-                            <div className="zoom-dropdown-wrap" onClick={(e) => e.stopPropagation()}>
+                            <div className="zoom-dropdown-wrap" ref={compactZoomRef}>
                                 <button
                                     type="button"
                                     className="zoom-tab active zoom-dropdown-btn"
@@ -1026,7 +1060,6 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                                     <span>±</span>
                                     <input
                                         ref={customInputRef}
-                                        autoFocus
                                         className="custom-zoom-input"
                                         type="number"
                                         min="1"
@@ -1087,7 +1120,6 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                                             <span>±</span>
                                             <input
                                                 ref={customInputRef}
-                                                autoFocus
                                                 className="custom-zoom-input"
                                                 type="number"
                                                 min="1"
@@ -1232,7 +1264,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
 
                 {presentCategories.length > 0 &&
                     (compactFilter ? (
-                        <div className="filter-compact" onClick={(e) => e.stopPropagation()}>
+                        <div className="filter-compact" ref={compactFilterRef}>
                             <button
                                 type="button"
                                 className={`filter-chip ${filter === "all" ? "active" : ""}`}
@@ -1390,7 +1422,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                 />
             )}
             {mediaConfirm && (
-                <div className="sheet-overlay" onClick={(e) => e.target === e.currentTarget && setMediaConfirm(null)}>
+                <div className="sheet-overlay" ref={mediaConfirmOverlayRef}>
                     <div className="media-confirm-modal">
                         <p className="media-confirm-title">large file</p>
                         <p className="media-confirm-body">
@@ -1422,8 +1454,16 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                 </div>
             )}
             {toast && (
-                <div className={`toast toast-${toast.type}`} role="alert" onClick={() => setToast(null)}>
-                    {toast.message}
+                <div className={`toast toast-${toast.type}`} role="alert">
+                    <span>{toast.message}</span>
+                    <button
+                        type="button"
+                        className="toast-dismiss"
+                        aria-label="Dismiss notification"
+                        onClick={() => setToast(null)}
+                    >
+                        ×
+                    </button>
                 </div>
             )}
         </div>
