@@ -12,7 +12,7 @@ interface Props {
     ref: React.RefObject<HTMLElement | null>;
     callback: () => void;
 }
-export const useOutsideAlerter = ({ ref, callback }: Props) => {
+export const useOverlayClick = ({ ref, callback }: Props) => {
     useEffect(() => {
         /**
          * Alert if clicked on outside of element

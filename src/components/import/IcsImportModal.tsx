@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import type { CategoryRecord, IcsCandidate } from "../../data/types";
-import { useOutsideAlerter } from "../../hooks/useOutsideAlerter";
+import { useOverlayClick } from "../../hooks/useOverlayClick";
 
 interface Props {
     candidates: IcsCandidate[];
@@ -13,7 +13,7 @@ interface Props {
 export default function IcsImportModal({ candidates, timedCount, categories, onImport, onClose }: Props) {
     const [rows, setRows] = useState(candidates);
     const overlayRef = useRef<HTMLDivElement>(null);
-    useOutsideAlerter({ ref: overlayRef, callback: onClose });
+    useOverlayClick({ ref: overlayRef, callback: onClose });
 
     const selectedCount = rows.filter((r) => r.selected).length;
 

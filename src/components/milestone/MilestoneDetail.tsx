@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { dbGetMedia } from "../../data/db";
 import type { FrontendMilestone } from "../../data/types";
-import { useOutsideAlerter } from "../../hooks/useOutsideAlerter";
+import { useOverlayClick } from "../../hooks/useOverlayClick";
 import { ageAtDate, formatDateDisplay, relativeLabel } from "../../utils/dates";
 
 interface Props {
@@ -17,7 +17,7 @@ export default function MilestoneDetail({ milestone: m, onClose, onEdit, onDelet
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
     const [confirm, setConfirm] = useState<null | "single" | "series">(null); // null | 'single' | 'series'
     const overlayRef = useRef<HTMLDivElement>(null);
-    useOutsideAlerter({ ref: overlayRef, callback: onClose });
+    useOverlayClick({ ref: overlayRef, callback: onClose });
 
     useEffect(() => {
         if (!m.media_type) return;

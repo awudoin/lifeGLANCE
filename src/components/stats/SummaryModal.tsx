@@ -1,6 +1,6 @@
 import { useMemo, useRef } from "react";
 import type { FrontendMilestone } from "../../data/types";
-import { useOutsideAlerter } from "../../hooks/useOutsideAlerter";
+import { useOverlayClick } from "../../hooks/useOverlayClick";
 
 function formatSpan(ms: number): string {
     const days = ms / (24 * 3600 * 1000);
@@ -19,7 +19,7 @@ interface SummaryModalProps {
 
 export default function SummaryModal({ milestones, onClose }: SummaryModalProps) {
     const overlayRef = useRef<HTMLDivElement>(null);
-    useOutsideAlerter({ ref: overlayRef, callback: onClose });
+    useOverlayClick({ ref: overlayRef, callback: onClose });
 
     const stats = useMemo(() => {
         if (!milestones.length) return null;

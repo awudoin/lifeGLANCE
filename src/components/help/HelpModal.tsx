@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useOutsideAlerter } from "../../hooks/useOutsideAlerter";
+import { useOverlayClick } from "../../hooks/useOverlayClick";
 
 const VERSION = "1.0.2";
 
@@ -67,7 +67,7 @@ export default function HelpModal({ onClose }: Props) {
     const localSize = useLocalStorageSize();
     const idbEst = useIndexedDBEstimate();
     const ref = useRef<HTMLDivElement>(null);
-    useOutsideAlerter({ ref, callback: onClose });
+    useOverlayClick({ ref, callback: onClose });
 
     return (
         // <div ref={ref} role='presentation' className="sheet-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>

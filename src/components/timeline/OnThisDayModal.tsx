@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import type { FrontendMilestone } from "../../data/types";
-import { useOutsideAlerter } from "../../hooks/useOutsideAlerter";
+import { useOverlayClick } from "../../hooks/useOverlayClick";
 import { formatDateDisplay } from "../../utils/dates";
 
 interface Props {
@@ -11,7 +11,7 @@ interface Props {
 
 export default function OnThisDayModal({ items, onClose, onSelect }: Props) {
     const overlayRef = useRef<HTMLDivElement>(null);
-    useOutsideAlerter({ ref: overlayRef, callback: onClose });
+    useOverlayClick({ ref: overlayRef, callback: onClose });
 
     const today = new Date();
     const todayYear = today.getFullYear();

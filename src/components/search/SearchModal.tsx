@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { FrontendMilestone } from "../../data/types";
-import { useOutsideAlerter } from "../../hooks/useOutsideAlerter";
+import { useOverlayClick } from "../../hooks/useOverlayClick";
 import { formatDateDisplay, relativeLabel } from "../../utils/dates";
 
 interface Props {
@@ -14,7 +14,7 @@ export default function SearchModal({ milestones, onSelect, onClose }: Props) {
     const [highlighted, setHighlighted] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
     const overlayRef = useRef<HTMLDivElement>(null);
-    useOutsideAlerter({ ref: overlayRef, callback: onClose });
+    useOverlayClick({ ref: overlayRef, callback: onClose });
 
     useEffect(() => {
         inputRef.current?.focus();

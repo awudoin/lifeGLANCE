@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import type { CategoryRecord, FrontendMilestone } from "../../data/types";
-import { useOutsideAlerter } from "../../hooks/useOutsideAlerter";
+import { useOverlayClick } from "../../hooks/useOverlayClick";
 import { isMuted, setMuted } from "../../utils/audio";
 import { saveCategories } from "../../utils/colors";
 import type { TextSize } from "../timeline/TimelineView";
@@ -75,7 +75,7 @@ export default function SettingsModal({
     const fileRef = useRef<HTMLInputElement>(null);
     const icsFileRef = useRef<HTMLInputElement>(null);
     const overlayRef = useRef<HTMLDivElement>(null);
-    useOutsideAlerter({ ref: overlayRef, callback: onClose });
+    useOverlayClick({ ref: overlayRef, callback: onClose });
 
     const usedIds = new Set(milestones.map((m) => m.category));
 
