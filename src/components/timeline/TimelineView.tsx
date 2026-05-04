@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { fetchBackupBundle, restoreBackupBundle } from "../../data/backupApi";
+import { fetchBootstrap } from "../../data/bootstrapApi";
+import { replaceCategoriesRemote } from "../../data/categoriesApi";
 import { dbPut } from "../../data/db";
 import { deleteMediaFile, getMediaUrl, uploadMediaFile } from "../../data/mediaApi";
 import {
@@ -10,6 +12,7 @@ import {
     uid,
     updateMilestone,
 } from "../../data/milestones";
+import { replaceSettingsRemote } from "../../data/settingsApi";
 import type {
     BackupBundle,
     CategoryRecord,
@@ -57,6 +60,12 @@ const TEXT_SIZES = {
 
 const ZOOM_ANIM_MS = 380;
 export type TextSize = keyof typeof TEXT_SIZES;
+type SettingsSnapshot = {
+    textSize: TextSize;
+    clustering: boolean;
+    birthday: string;
+    soundOn: boolean;
+};
 
 interface TimelineViewProps {
     milestones: FrontendMilestone[];
@@ -169,6 +178,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
     const [birthday, setBirthday] = useState(
         () => localStorage.getItem("lifeglance-birthday") || "",
     );
+    const [soundOn, setSoundOn] = useState(() => !audio.isMuted());
     const [canUndo, setCanUndo] = useState(false);
     const [canRedo, setCanRedo] = useState(false);
     const [newlyAddedId, setNewlyAddedId] = useState<string | null>(null);
@@ -197,6 +207,12 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
     const customInputRef = useRef<HTMLInputElement>(null);
     const historyRef = useRef<{ stack: FrontendMilestone[][]; idx: number }>(null); // { stack: Milestone[][], idx: number }
     const toastTimerRef = useRef<number>(null);
+    const initialSettingsRef = useRef<SettingsSnapshot>({
+        textSize,
+        clustering,
+        birthday,
+        soundOn,
+    });
 
     useOverlayClick({
         ref: mediaConfirmOverlayRef,
@@ -880,55 +896,139 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
         return `${(n / 1024 ** 3).toFixed(1)} GB`;
     }
 
-    function buildCurrentSettingRecords(): SettingRecord[] {
+    const buildSettingRecords = useCallback((snapshot: SettingsSnapshot): SettingRecord[] => {
         return [
-            { key: "lifeglance-text-size", value: textSize },
-            { key: "lifeglance-clustering", value: String(clustering) },
-            { key: "lifeglance-birthday", value: birthday },
-            { key: "lifeglance-sound", value: audio.isMuted() ? "off" : "on" },
+            { key: "lifeglance-text-size", value: snapshot.textSize },
+            { key: "lifeglance-clustering", value: String(snapshot.clustering) },
+            { key: "lifeglance-birthday", value: snapshot.birthday },
+            { key: "lifeglance-sound", value: snapshot.soundOn ? "on" : "off" },
         ];
-    }
+    }, []);
+
+    const currentSettingsSnapshot = useCallback((): SettingsSnapshot => {
+        return {
+            textSize,
+            clustering,
+            birthday,
+            soundOn,
+        };
+    }, [birthday, clustering, soundOn, textSize]);
+
+    const applySettingsSnapshot = useCallback((snapshot: SettingsSnapshot): void => {
+        setTextSize(snapshot.textSize);
+        setClustering(snapshot.clustering);
+        localStorage.setItem("lifeglance-clustering", String(snapshot.clustering));
+        setBirthday(snapshot.birthday);
+        localStorage.setItem("lifeglance-birthday", snapshot.birthday);
+        setSoundOn(snapshot.soundOn);
+        audio.setMuted(!snapshot.soundOn);
+    }, []);
+
+    const applyCategoryState = useCallback((nextCategories: CategoryRecord[]): void => {
+        saveCategories(nextCategories);
+        setCategories(nextCategories);
+    }, []);
+
+    const applySettingRecords = useCallback(
+        (settings: SettingRecord[], baseSnapshot = currentSettingsSnapshot()) => {
+            const next: SettingsSnapshot = { ...baseSnapshot };
+
+            const nextTextSize = settings.find(
+                (item) => item.key === "lifeglance-text-size",
+            )?.value;
+            if (
+                nextTextSize === "small" ||
+                nextTextSize === "normal" ||
+                nextTextSize === "big" ||
+                nextTextSize === "bigger"
+            ) {
+                next.textSize = nextTextSize;
+            }
+
+            const nextClustering = settings.find(
+                (item) => item.key === "lifeglance-clustering",
+            )?.value;
+            if (nextClustering === "true" || nextClustering === "false") {
+                next.clustering = nextClustering === "true";
+            }
+
+            const nextBirthday = settings.find((item) => item.key === "lifeglance-birthday")?.value;
+            if (typeof nextBirthday === "string") {
+                next.birthday = nextBirthday;
+            }
+
+            const nextSound = settings.find((item) => item.key === "lifeglance-sound")?.value;
+            if (nextSound === "on" || nextSound === "off") {
+                next.soundOn = nextSound === "on";
+            }
+
+            applySettingsSnapshot(next);
+            return next;
+        },
+        [applySettingsSnapshot, currentSettingsSnapshot],
+    );
 
     function applyRestoredClientPreferences(
         restoredCategories: CategoryRecord[],
         restoredSettings: SettingRecord[],
     ) {
-        saveCategories(restoredCategories);
-        setCategories(restoredCategories);
+        applyCategoryState(restoredCategories);
+        applySettingRecords(restoredSettings);
+    }
 
-        const nextTextSize = restoredSettings.find(
-            (item) => item.key === "lifeglance-text-size",
-        )?.value;
-        if (
-            nextTextSize === "small" ||
-            nextTextSize === "normal" ||
-            nextTextSize === "big" ||
-            nextTextSize === "bigger"
-        ) {
-            setTextSize(nextTextSize);
+    async function commitSettingsSnapshot(
+        next: SettingsSnapshot,
+        errorMessage: string,
+    ): Promise<void> {
+        const previous = currentSettingsSnapshot();
+        applySettingsSnapshot(next);
+        try {
+            await replaceSettingsRemote(buildSettingRecords(next));
+        } catch (error) {
+            console.error(errorMessage, error);
+            applySettingsSnapshot(previous);
+            showToast(errorMessage);
         }
+    }
 
-        const nextClustering = restoredSettings.find(
-            (item) => item.key === "lifeglance-clustering",
-        )?.value;
-        if (nextClustering === "true" || nextClustering === "false") {
-            const enabled = nextClustering === "true";
-            setClustering(enabled);
-            localStorage.setItem("lifeglance-clustering", String(enabled));
+    async function handleCategoriesChange(nextCategories: CategoryRecord[]): Promise<void> {
+        const previous = categories;
+        applyCategoryState(nextCategories);
+        try {
+            await replaceCategoriesRemote(nextCategories);
+        } catch (error) {
+            console.error("Category update failed:", error);
+            applyCategoryState(previous);
+            showToast("Failed to save categories. Please try again.");
         }
+    }
 
-        const nextBirthday = restoredSettings.find(
-            (item) => item.key === "lifeglance-birthday",
-        )?.value;
-        if (typeof nextBirthday === "string") {
-            setBirthday(nextBirthday);
-            localStorage.setItem("lifeglance-birthday", nextBirthday);
-        }
+    async function handleTextSizeChange(nextTextSize: TextSize): Promise<void> {
+        await commitSettingsSnapshot(
+            { ...currentSettingsSnapshot(), textSize: nextTextSize },
+            "Failed to save text size. Please try again.",
+        );
+    }
 
-        const nextSound = restoredSettings.find((item) => item.key === "lifeglance-sound")?.value;
-        if (nextSound === "on" || nextSound === "off") {
-            audio.setMuted(nextSound === "off");
-        }
+    async function handleClusteringChange(nextClustering: boolean): Promise<void> {
+        await commitSettingsSnapshot(
+            { ...currentSettingsSnapshot(), clustering: nextClustering },
+            "Failed to save clustering preference. Please try again.",
+        );
+    }
+
+    async function handleBirthdayChange(nextBirthday: string): Promise<void> {
+        await commitSettingsSnapshot(
+            { ...currentSettingsSnapshot(), birthday: nextBirthday },
+            "Failed to save birthday. Please try again.",
+        );
+    }
+
+    async function handleSoundChange(nextSoundOn: boolean): Promise<void> {
+        await commitSettingsSnapshot(
+            { ...currentSettingsSnapshot(), soundOn: nextSoundOn },
+            "Failed to save sound preference. Please try again.",
+        );
     }
 
     // ── Toast ────────────────────────────────────────────────────────────────────
@@ -937,6 +1037,49 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
         setToast({ message, type });
         toastTimerRef.current = setTimeout(() => setToast(null), 5000);
     }
+
+    useEffect(() => {
+        let cancelled = false;
+
+        void (async () => {
+            try {
+                const bootstrap = await fetchBootstrap();
+                if (cancelled) return;
+
+                const nextCategories =
+                    bootstrap.categories.length > 0 ? bootstrap.categories : loadCategories();
+                applyCategoryState(nextCategories);
+                const nextSettings = applySettingRecords(
+                    bootstrap.settings,
+                    initialSettingsRef.current,
+                );
+
+                if (bootstrap.categories.length === 0 && nextCategories.length > 0) {
+                    void replaceCategoriesRemote(nextCategories).catch((error) => {
+                        console.warn(
+                            "Failed to seed backend categories from local defaults:",
+                            error,
+                        );
+                    });
+                }
+
+                if (bootstrap.settings.length === 0) {
+                    void replaceSettingsRemote(buildSettingRecords(nextSettings)).catch((error) => {
+                        console.warn("Failed to seed backend settings from local defaults:", error);
+                    });
+                }
+            } catch (error) {
+                console.warn(
+                    "Falling back to local settings/category cache because backend bootstrap failed.",
+                    error,
+                );
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [applyCategoryState, applySettingRecords, buildSettingRecords]);
 
     // ── CRUD ─────────────────────────────────────────────────────────────────────
     async function executeSave(
@@ -1187,7 +1330,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
             const exportBundle: BackupBundle = {
                 ...bundle,
                 categories,
-                settings: buildCurrentSettingRecords(),
+                settings: buildSettingRecords(currentSettingsSnapshot()),
             };
             const json = JSON.stringify(exportBundle, null, 2);
             const blob = new Blob([json], { type: "application/json" });
@@ -1693,19 +1836,25 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
             {settingsOpen && (
                 <SettingsModal
                     textSize={textSize}
-                    onTextSizeChange={setTextSize}
+                    onTextSizeChange={(value) => {
+                        void handleTextSizeChange(value);
+                    }}
                     ultraCompact={ultraCompact}
                     categories={categories}
-                    onCategoriesChange={setCategories}
+                    onCategoriesChange={(nextCategories) => {
+                        void handleCategoriesChange(nextCategories);
+                    }}
                     clustering={clustering}
-                    onClusteringChange={(v) => {
-                        setClustering(v);
-                        localStorage.setItem("lifeglance-clustering", String(v));
+                    onClusteringChange={(value) => {
+                        void handleClusteringChange(value);
+                    }}
+                    soundOn={soundOn}
+                    onSoundChange={(value) => {
+                        void handleSoundChange(value);
                     }}
                     birthday={birthday}
-                    onBirthdayChange={(v) => {
-                        setBirthday(v);
-                        localStorage.setItem("lifeglance-birthday", v);
+                    onBirthdayChange={(value) => {
+                        void handleBirthdayChange(value);
                     }}
                     milestones={milestones}
                     onExportImage={handleExportImage}

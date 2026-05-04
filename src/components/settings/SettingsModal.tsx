@@ -1,8 +1,6 @@
 import { useRef, useState } from "react";
 import type { CategoryRecord, FrontendMilestone } from "../../data/types";
 import { useOverlayClick } from "../../hooks/useOverlayClick";
-import { isMuted, setMuted } from "../../utils/audio";
-import { saveCategories } from "../../utils/colors";
 import type { TextSize } from "../timeline/TimelineView";
 
 const TEXT_SIZES_ALL = ["small", "normal", "big", "bigger"] as const;
@@ -41,6 +39,8 @@ interface Props {
     onCategoriesChange: (categories: CategoryRecord[]) => void;
     clustering: boolean;
     onClusteringChange: (clustering: boolean) => void;
+    soundOn: boolean;
+    onSoundChange: (soundOn: boolean) => void;
     birthday: string;
     onBirthdayChange: (birthday: string) => void;
     milestones: FrontendMilestone[];
@@ -59,6 +59,8 @@ export default function SettingsModal({
     onCategoriesChange,
     clustering,
     onClusteringChange,
+    soundOn,
+    onSoundChange,
     birthday,
     onBirthdayChange,
     milestones,
@@ -71,7 +73,6 @@ export default function SettingsModal({
 }: Props) {
     const [newLabel, setNewLabel] = useState("");
     const [newColor, setNewColor] = useState<ColorPaletteType>(COLOR_PALETTE[0]);
-    const [soundOn, setSoundOn] = useState(() => !isMuted());
     const fileRef = useRef<HTMLInputElement>(null);
     const icsFileRef = useRef<HTMLInputElement>(null);
     const overlayRef = useRef<HTMLDivElement>(null);
@@ -85,14 +86,12 @@ export default function SettingsModal({
         const id = `${slugify(label)}-${Math.random().toString(36).slice(2, 6)}`;
         const cat = { id, label: label.toLowerCase(), color: newColor };
         const updated = [...categories, cat];
-        saveCategories(updated);
         onCategoriesChange(updated);
         setNewLabel("");
     }
 
     function handleDelete(id: string) {
         const updated = categories.filter((c) => c.id !== id);
-        saveCategories(updated);
         onCategoriesChange(updated);
     }
 
@@ -170,10 +169,7 @@ export default function SettingsModal({
                             type="checkbox"
                             className="settings-toggle"
                             checked={soundOn}
-                            onChange={(e) => {
-                                setSoundOn(e.target.checked);
-                                setMuted(!e.target.checked);
-                            }}
+                            onChange={(e) => onSoundChange(e.target.checked)}
                         />
                     </label>
                 </div>
