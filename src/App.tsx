@@ -1,7 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Onboarding from "./components/onboarding/Onboarding";
 import TimelineView from "./components/timeline/TimelineView";
+import { fetchBootstrap } from "./data/bootstrapApi";
 import { initDB } from "./data/db";
+import {
+    clearLocalMigrationPromptDismissal,
+    collectLocalMigrationBundle,
+    dismissLocalMigrationPrompt,
+    isLocalMigrationPromptDismissed,
+} from "./data/localMigration";
+import { fetchLocalMigrationStatus, importLocalMigrationBundle } from "./data/migrationApi";
 import { loadMilestones } from "./data/milestones";
 import type { FrontendMilestone } from "./data/types";
 
@@ -11,6 +19,7 @@ export default function App() {
     const [portraitWarn, setPortraitWarn] = useState(
         () => window.matchMedia("(orientation: portrait) and (max-width: 1024px)").matches,
     );
+    const migrationCheckedRef = useRef(false);
 
     useEffect(() => {
         const mq = window.matchMedia("(orientation: portrait) and (max-width: 1024px)");
@@ -34,6 +43,41 @@ export default function App() {
                 setScreen("onboarding");
             });
     }, []);
+
+    useEffect(() => {
+        if (screen === "loading" || migrationCheckedRef.current) return;
+        migrationCheckedRef.current = true;
+
+        void (async () => {
+            try {
+                if (isLocalMigrationPromptDismissed()) return;
+
+                const [{ bundle, hasData }, status, bootstrap] = await Promise.all([
+                    collectLocalMigrationBundle(),
+                    fetchLocalMigrationStatus(),
+                    fetchBootstrap(),
+                ]);
+
+                if (!hasData || status.completed || bootstrap.milestones.length > 0) return;
+
+                const shouldImport = window.confirm(
+                    "Import your existing browser-stored lifeGLANCE data into the new backend now? This is a one-time migration for milestones, media, categories, and settings.",
+                );
+                if (!shouldImport) {
+                    dismissLocalMigrationPrompt();
+                    return;
+                }
+
+                await importLocalMigrationBundle(bundle);
+                clearLocalMigrationPromptDismissal();
+                const all = await loadMilestones();
+                setMilestones(all);
+                setScreen(all.length === 0 ? "onboarding" : "timeline");
+            } catch (error) {
+                console.error("Local migration check failed:", error);
+            }
+        })();
+    }, [screen]);
 
     function handleOnboardingComplete(initial: FrontendMilestone[]) {
         setMilestones(initial);

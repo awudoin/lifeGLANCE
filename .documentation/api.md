@@ -15,6 +15,10 @@
 | `/api/categories` | PUT | `Category[]` | `Category[]` | Replaces all categories |
 | `/api/settings` | GET | None | `Setting[]` | Returns all settings |
 | `/api/settings` | PUT | `Setting[]` | `Setting[]` | Replaces all settings |
+| `/api/migrations/browser-local/status` | GET | None | `{ completed }` | Returns whether the one-time browser-local import already ran |
+| `/api/migrations/browser-local/import` | POST | `{ milestones, categories, settings, mediaFiles }` | `{ completed: true }` | Imports legacy IndexedDB/localStorage data into the backend and marks migration complete |
+| `/api/backup` | GET | None | `BackupBundle` | Exports milestones, media metadata, and media payloads as a JSON backup bundle |
+| `/api/backup/restore` | POST | `BackupBundle` | `204 No Content` | Replaces all persisted backend data from a backup bundle |
 | `/api/media` | POST | multipart `milestoneId`, `kind`, `file` | `MediaFile` | Saves file to disk and stores metadata in DB |
 | `/api/media/:id` | GET | None | File stream | Streams stored file back to client |
 | `/api/media/:id` | DELETE | None | `204 No Content` | Deletes media DB row and stored file |
@@ -52,3 +56,11 @@
 - `storagePath: string`
 - `sha256: string`
 - `createdAt: string`
+
+### BackupBundle
+- `version: string`
+- `exportedAt: string`
+- `milestones: Milestone[]`
+- `categories: Category[]`
+- `settings: Setting[]`
+- `mediaFiles: Array<MediaFile & { dataBase64: string }>`

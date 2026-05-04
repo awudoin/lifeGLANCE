@@ -12,18 +12,20 @@ export async function listCategories(): Promise<CategoryDto[]> {
 export async function replaceCategories(items: CategoryInput[]): Promise<CategoryDto[]> {
     const now: string = new Date().toISOString();
 
-    await db.transaction(async (tx) => {
-        await tx.delete(categories);
+    await db.transaction((tx) => {
+        tx.delete(categories).run();
         if (items.length > 0) {
-            await tx.insert(categories).values(
-                items.map((item) => ({
-                    id: item.id,
-                    label: item.label,
-                    color: item.color,
-                    createdAt: now,
-                    updatedAt: now,
-                })),
-            );
+            tx.insert(categories)
+                .values(
+                    items.map((item) => ({
+                        id: item.id,
+                        label: item.label,
+                        color: item.color,
+                        createdAt: now,
+                        updatedAt: now,
+                    })),
+                )
+                .run();
         }
     });
 

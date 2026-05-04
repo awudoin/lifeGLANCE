@@ -12,16 +12,18 @@ export async function listSettings(): Promise<SettingDto[]> {
 export async function replaceSettings(items: SettingInput[]): Promise<SettingDto[]> {
     const now: string = new Date().toISOString();
 
-    await db.transaction(async (tx) => {
-        await tx.delete(settings);
+    await db.transaction((tx) => {
+        tx.delete(settings).run();
         if (items.length > 0) {
-            await tx.insert(settings).values(
-                items.map((item) => ({
-                    key: item.key,
-                    value: item.value,
-                    updatedAt: now,
-                })),
-            );
+            tx.insert(settings)
+                .values(
+                    items.map((item) => ({
+                        key: item.key,
+                        value: item.value,
+                        updatedAt: now,
+                    })),
+                )
+                .run();
         }
     });
 

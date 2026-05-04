@@ -156,6 +156,19 @@ export function dbGetMedia(id: string): Promise<{ blob: Blob; mimeType: string }
     });
 }
 
+export function dbGetAllMedia(): Promise<Array<{ id: string; blob: Blob; mimeType: string }>> {
+    return new Promise((resolve, reject) => {
+        const request = mediaStore().getAll();
+        request.onsuccess = () =>
+            resolve(
+                (request.result as
+                    | Array<{ id: string; blob: Blob; mimeType: string }>
+                    | undefined) ?? [],
+            );
+        request.onerror = () => reject(request.error);
+    });
+}
+
 export function dbClearAllMedia(): Promise<void> {
     return new Promise((resolve, reject) => {
         const request = mediaStore("readwrite").clear();

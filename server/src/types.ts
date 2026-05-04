@@ -5,6 +5,10 @@ export interface BootstrapResponse {
     mediaFiles: MediaFileDto[];
 }
 
+export interface MigrationStatusDto {
+    completed: boolean;
+}
+
 export interface MilestoneDto {
     id: string;
     title: string;
@@ -47,6 +51,19 @@ export interface MediaFileDto {
     createdAt: string;
 }
 
+export interface BackupMediaFileDto extends MediaFileDto {
+    dataBase64: string;
+}
+
+export interface BackupBundleDto {
+    version: string;
+    exportedAt: string;
+    milestones: MilestoneDto[];
+    categories: CategoryDto[];
+    settings: SettingDto[];
+    mediaFiles: BackupMediaFileDto[];
+}
+
 export interface UpsertMilestoneBody {
     title: string;
     date: string;
@@ -75,4 +92,28 @@ export interface CategoryInput {
 export interface SettingInput {
     key: string;
     value: string;
+}
+
+export interface MediaImportInput {
+    milestoneId: string;
+    kind: string;
+    originalName: string;
+    mimeType: string;
+    dataBase64: string;
+}
+
+export interface BrowserLocalImportBody {
+    milestones: RestoreMilestoneBody[];
+    categories: CategoryInput[];
+    settings: SettingInput[];
+    mediaFiles: MediaImportInput[];
+}
+
+export interface BackupRestoreBody {
+    version: string;
+    exportedAt: string;
+    milestones: RestoreMilestoneBody[];
+    categories: CategoryInput[];
+    settings: SettingInput[];
+    mediaFiles: Array<MediaImportInput & { id?: string; createdAt?: string }>;
 }

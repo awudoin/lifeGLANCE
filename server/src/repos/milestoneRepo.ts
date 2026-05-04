@@ -89,32 +89,34 @@ export async function deleteMilestonesByRecurrenceId(recurrenceId: string): Prom
 }
 
 export async function replaceAllMilestones(items: RestoreMilestoneBody[]): Promise<MilestoneDto[]> {
-    await db.transaction(async (tx) => {
-        await tx.delete(mediaFiles);
-        await tx.delete(milestones);
+    await db.transaction((tx) => {
+        tx.delete(mediaFiles).run();
+        tx.delete(milestones).run();
 
         if (items.length === 0) {
             return;
         }
 
         const now: string = new Date().toISOString();
-        await tx.insert(milestones).values(
-            items.map((item) => ({
-                id: item.id ?? createId(),
-                title: item.title,
-                date: item.date,
-                datePrecision: item.datePrecision,
-                direction: item.direction,
-                categoryId: item.categoryId,
-                color: item.color,
-                note: item.note ?? "",
-                url: item.url ?? "",
-                recurrence: item.recurrence ?? null,
-                recurrenceId: item.recurrenceId ?? null,
-                createdAt: item.createdAt ?? now,
-                updatedAt: item.updatedAt ?? now,
-            })),
-        );
+        tx.insert(milestones)
+            .values(
+                items.map((item) => ({
+                    id: item.id ?? createId(),
+                    title: item.title,
+                    date: item.date,
+                    datePrecision: item.datePrecision,
+                    direction: item.direction,
+                    categoryId: item.categoryId,
+                    color: item.color,
+                    note: item.note ?? "",
+                    url: item.url ?? "",
+                    recurrence: item.recurrence ?? null,
+                    recurrenceId: item.recurrenceId ?? null,
+                    createdAt: item.createdAt ?? now,
+                    updatedAt: item.updatedAt ?? now,
+                })),
+            )
+            .run();
     });
 
     return listMilestones();

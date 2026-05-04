@@ -1,23 +1,27 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { fetchBackupBundle, restoreBackupBundle } from "../../data/backupApi";
 import { dbPut } from "../../data/db";
 import { deleteMediaFile, getMediaUrl, uploadMediaFile } from "../../data/mediaApi";
 import {
     addMilestone,
     deleteMilestone,
+    loadMilestones,
     restoreMilestones,
     uid,
     updateMilestone,
 } from "../../data/milestones";
 import type {
+    BackupBundle,
     CategoryRecord,
     FrontendMilestone,
     FrontendMilestoneSave,
     IcsCandidate,
     IcsParseResult,
+    SettingRecord,
 } from "../../data/types";
 import { useOverlayClick } from "../../hooks/useOverlayClick";
 import * as audio from "../../utils/audio";
-import { loadCategories } from "../../utils/colors";
+import { loadCategories, saveCategories } from "../../utils/colors";
 import { parseIcs } from "../../utils/icsParser";
 import type { ViewMode, ZoomLevel } from "../../utils/timeline";
 import { ZOOM_LEVELS } from "../../utils/timeline";
@@ -57,6 +61,31 @@ export type TextSize = keyof typeof TEXT_SIZES;
 interface TimelineViewProps {
     milestones: FrontendMilestone[];
     setMilestones: React.Dispatch<React.SetStateAction<FrontendMilestone[]>>;
+}
+
+function isFrontendMilestone(value: unknown): value is FrontendMilestone {
+    if (typeof value !== "object" || value === null) return false;
+    const candidate = value as Record<string, unknown>;
+    return (
+        typeof candidate.id === "string" &&
+        typeof candidate.title === "string" &&
+        (typeof candidate.date === "string" || candidate.date instanceof Date) &&
+        typeof candidate.date_precision === "string" &&
+        typeof candidate.category === "string"
+    );
+}
+
+function isBackupBundle(value: unknown): value is BackupBundle {
+    if (typeof value !== "object" || value === null) return false;
+    const candidate = value as Record<string, unknown>;
+    return (
+        typeof candidate.version === "string" &&
+        typeof candidate.exportedAt === "string" &&
+        Array.isArray(candidate.milestones) &&
+        Array.isArray(candidate.categories) &&
+        Array.isArray(candidate.settings) &&
+        Array.isArray(candidate.mediaFiles)
+    );
 }
 
 function applyRecurFilter(ms: FrontendMilestone[], mode: "next" | ViewMode): FrontendMilestone[] {
@@ -851,6 +880,57 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
         return `${(n / 1024 ** 3).toFixed(1)} GB`;
     }
 
+    function buildCurrentSettingRecords(): SettingRecord[] {
+        return [
+            { key: "lifeglance-text-size", value: textSize },
+            { key: "lifeglance-clustering", value: String(clustering) },
+            { key: "lifeglance-birthday", value: birthday },
+            { key: "lifeglance-sound", value: audio.isMuted() ? "off" : "on" },
+        ];
+    }
+
+    function applyRestoredClientPreferences(
+        restoredCategories: CategoryRecord[],
+        restoredSettings: SettingRecord[],
+    ) {
+        saveCategories(restoredCategories);
+        setCategories(restoredCategories);
+
+        const nextTextSize = restoredSettings.find(
+            (item) => item.key === "lifeglance-text-size",
+        )?.value;
+        if (
+            nextTextSize === "small" ||
+            nextTextSize === "normal" ||
+            nextTextSize === "big" ||
+            nextTextSize === "bigger"
+        ) {
+            setTextSize(nextTextSize);
+        }
+
+        const nextClustering = restoredSettings.find(
+            (item) => item.key === "lifeglance-clustering",
+        )?.value;
+        if (nextClustering === "true" || nextClustering === "false") {
+            const enabled = nextClustering === "true";
+            setClustering(enabled);
+            localStorage.setItem("lifeglance-clustering", String(enabled));
+        }
+
+        const nextBirthday = restoredSettings.find(
+            (item) => item.key === "lifeglance-birthday",
+        )?.value;
+        if (typeof nextBirthday === "string") {
+            setBirthday(nextBirthday);
+            localStorage.setItem("lifeglance-birthday", nextBirthday);
+        }
+
+        const nextSound = restoredSettings.find((item) => item.key === "lifeglance-sound")?.value;
+        if (nextSound === "on" || nextSound === "off") {
+            audio.setMuted(nextSound === "off");
+        }
+    }
+
     // ── Toast ────────────────────────────────────────────────────────────────────
     function showToast(message: string, type: string = "error") {
         if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -1101,17 +1181,28 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
     }
 
     // ── Backup ───────────────────────────────────────────────────────────────────
-    function handleSaveBackup() {
-        const json = JSON.stringify(milestones, null, 2);
-        const blob = new Blob([json], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        const d = new Date();
-        const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-        a.download = `lifeglance-${stamp}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
+    async function handleSaveBackup() {
+        try {
+            const bundle = await fetchBackupBundle();
+            const exportBundle: BackupBundle = {
+                ...bundle,
+                categories,
+                settings: buildCurrentSettingRecords(),
+            };
+            const json = JSON.stringify(exportBundle, null, 2);
+            const blob = new Blob([json], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            const d = new Date();
+            const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+            a.download = `lifeglance-${stamp}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error("Backup export failed:", err);
+            showToast("Failed to export backup. Please try again.");
+        }
     }
 
     async function handleImportIcsFile(file: File) {
@@ -1157,14 +1248,31 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
     async function handleRestoreFile(file: File) {
         try {
             const text = await file.text();
-            const data = JSON.parse(text);
-            const restored = await restoreMilestones(data);
+            const data: unknown = JSON.parse(text);
+
+            if (Array.isArray(data) && data.every(isFrontendMilestone)) {
+                const restored = await restoreMilestones(data);
+                setMilestones(restored);
+                historyRef.current = { stack: [restored], idx: 0 };
+                setCanUndo(false);
+                setCanRedo(false);
+                return;
+            }
+
+            if (!isBackupBundle(data)) {
+                throw new Error("Unsupported backup format.");
+            }
+
+            await restoreBackupBundle(data);
+            applyRestoredClientPreferences(data.categories, data.settings);
+            const restored = await loadMilestones();
             setMilestones(restored);
             historyRef.current = { stack: [restored], idx: 0 };
             setCanUndo(false);
             setCanRedo(false);
         } catch (err) {
             console.error("Restore failed:", err);
+            showToast("Failed to restore backup. Please check the file and try again.");
         }
     }
 

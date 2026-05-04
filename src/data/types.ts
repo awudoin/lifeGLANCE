@@ -119,6 +119,38 @@ export interface BootstrapResponse {
     mediaFiles: MediaFileRecord[];
 }
 
+export interface LocalMigrationStatus {
+    completed: boolean;
+}
+
+export interface LocalMigrationMediaInput {
+    milestoneId: string;
+    kind: MediaKind;
+    originalName: string;
+    mimeType: string;
+    dataBase64: string;
+}
+
+export interface LocalMigrationBundle {
+    milestones: ServerMilestoneInput[];
+    categories: CategoryRecord[];
+    settings: SettingRecord[];
+    mediaFiles: LocalMigrationMediaInput[];
+}
+
+export interface BackupMediaFileRecord extends MediaFileRecord {
+    dataBase64: string;
+}
+
+export interface BackupBundle {
+    version: string;
+    exportedAt: string;
+    milestones: ServerMilestone[];
+    categories: CategoryRecord[];
+    settings: SettingRecord[];
+    mediaFiles: BackupMediaFileRecord[];
+}
+
 export interface MediaFileRecord {
     id: string;
     milestoneId: string;

@@ -84,7 +84,8 @@ Currently this project stores is a frontend only application and stores all data
 ## Step 9 - Redesign backup/restore
 - Backup currently doesn't properly backup media now that it is stored in filesystem
 - Change backup to export a JSON manifest with attached media.
-  - Zip all files as a single zip and stream to client
+  - Phase 4 implementation uses a single JSON backup bundle with embedded base64 media payloads
+  - Zip streaming can be added later if the backup size or UX warrants it
 - If it'll help, zipping the content can happen in the background and the user can be notified when it's available for download.
 
 ## Step 10 - Deployment changes
