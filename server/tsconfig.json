@@ -12,9 +12,9 @@
         "forceConsistentCasingInFileNames": true,
         "skipLibCheck": true,
         "outDir": "dist",
-        "rootDir": ".",
+        "rootDir": "src",
         "resolveJsonModule": true,
         "types": ["node"]
     },
-    "include": ["src/**/*.ts", "drizzle.config.ts"]
+    "include": ["src/**/*.ts"]
 }
