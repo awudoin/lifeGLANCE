@@ -14,6 +14,7 @@ export interface AppConfig {
     readonly corsOrigin: string;
     readonly databaseUrl: string;
     readonly mediaRoot: string;
+    readonly uploadTempRoot: string;
 }
 
 export const config: AppConfig = {
@@ -21,4 +22,5 @@ export const config: AppConfig = {
     corsOrigin: process.env.CORS_ORIGIN ?? "http://localhost:5173",
     databaseUrl: resolveStoragePath(process.env.DATABASE_URL ?? "./data/app.db"),
     mediaRoot: resolveStoragePath(process.env.MEDIA_ROOT ?? "./data/media"),
+    uploadTempRoot: resolveStoragePath(process.env.UPLOAD_TEMP_ROOT ?? "./data/uploads-temp"),
 };

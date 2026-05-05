@@ -1,12 +1,11 @@
 import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { type NextFunction, type Request, type Response, Router } from "express";
 import multer from "multer";
+import { config } from "../config.js";
 import { createMediaRecord, deleteMediaRecord, findMediaRecord } from "../repos/mediaRepo.js";
 import { persistStagedUpload, resolveMediaAbsolutePath } from "../utils/files.js";
 
-const uploadTempDir = path.join(os.tmpdir(), "lifeglance-uploads");
+const uploadTempDir = config.uploadTempRoot;
 fs.mkdirSync(uploadTempDir, { recursive: true });
 
 const upload = multer({

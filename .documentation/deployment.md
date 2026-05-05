@@ -55,6 +55,18 @@ Inside the backend container:
 
 This means milestone metadata, settings, categories, and uploaded files survive container restarts and rebuilds.
 
+The compose deployment also defines a temp upload staging volume:
+
+- `lifeglance_uploads_temp`
+
+That volume is mounted at:
+
+- `/uploads-temp`
+
+Inside the backend container:
+
+- temp upload staging path: `/uploads-temp`
+
 ## Start The Stack
 
 From the repo root:
@@ -116,6 +128,7 @@ The backend supports these runtime values:
 
 - `DATABASE_URL`
 - `MEDIA_ROOT`
+- `UPLOAD_TEMP_ROOT`
 - `PORT`
 - `CORS_ORIGIN`
 
@@ -123,6 +136,7 @@ The compose file currently sets:
 
 - `DATABASE_URL=/data/app.db`
 - `MEDIA_ROOT=/data/media`
+- `UPLOAD_TEMP_ROOT=/uploads-temp`
 - `PORT=3001`
 - `CORS_ORIGIN=http://localhost:6868`
 
@@ -222,6 +236,14 @@ The backend also enforces a matching upload ceiling in the media route:
 - current multer file size limit: `1 GiB`
 
 Very large uploads are staged to disk in the backend container before being moved into the persistent media directory, rather than being buffered entirely in memory.
+
+By default, compose stages uploads on a separate volume mounted at `/uploads-temp`.
+
+If you want the temp upload path on the same volume as the database and media store, change:
+
+- `UPLOAD_TEMP_ROOT=/data/uploads-temp`
+
+and remove the separate temp volume mount from [docker-compose.yml](/home/awudoin/projects/lifeGLANCE/docker-compose.yml:1).
 
 ## Health Checks
 

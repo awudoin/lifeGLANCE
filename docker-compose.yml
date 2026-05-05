@@ -22,10 +22,12 @@ services:
     environment:
       DATABASE_URL: /data/app.db
       MEDIA_ROOT: /data/media
+      UPLOAD_TEMP_ROOT: /uploads-temp
       PORT: 3001
       CORS_ORIGIN: http://localhost:6868
     volumes:
       - lifeglance_data:/data
+      - lifeglance_uploads_temp:/uploads-temp
     healthcheck:
       test:
         [
@@ -42,3 +44,4 @@ services:
 
 volumes:
   lifeglance_data:
+  lifeglance_uploads_temp:

@@ -1,7 +1,6 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import type { Express } from "express";
 import { config } from "../config.js";
 import { createId } from "./ids.js";
 
@@ -39,6 +38,20 @@ async function hashFile(absolutePath: string): Promise<string> {
     });
 }
 
+async function moveFile(sourcePath: string, destinationPath: string): Promise<void> {
+    try {
+        fs.renameSync(sourcePath, destinationPath);
+    } catch (error) {
+        const err = error as NodeJS.ErrnoException;
+        if (err.code !== "EXDEV") {
+            throw error;
+        }
+
+        await fs.promises.copyFile(sourcePath, destinationPath);
+        await fs.promises.unlink(sourcePath);
+    }
+}
+
 export async function persistStagedUpload(file: Express.Multer.File): Promise<StoredUpload> {
     if (!file.path) {
         throw new Error("Staged upload file path is missing.");
@@ -57,7 +70,7 @@ export async function persistStagedUpload(file: Express.Multer.File): Promise<St
     if (fs.existsSync(absolutePath)) {
         fs.unlinkSync(file.path);
     } else {
-        fs.renameSync(file.path, absolutePath);
+        await moveFile(file.path, absolutePath);
     }
 
     return {

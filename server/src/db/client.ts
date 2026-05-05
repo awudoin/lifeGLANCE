@@ -9,6 +9,7 @@ import * as schema from "./schema.js";
 const databaseDir: string = path.dirname(config.databaseUrl);
 fs.mkdirSync(databaseDir, { recursive: true });
 fs.mkdirSync(config.mediaRoot, { recursive: true });
+fs.mkdirSync(config.uploadTempRoot, { recursive: true });
 
 const sqlite = new Database(config.databaseUrl);
 sqlite.pragma("journal_mode = WAL");
