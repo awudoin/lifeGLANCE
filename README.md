@@ -2,7 +2,7 @@
 
 **Your life, at a glance.** A zoomable personal timeline for milestones — past and future.
 
-Built for people who want to map their life without handing their data to a cloud service. lifeGLANCE is a privacy-first progressive web app that runs entirely in the browser. There is no account, no server, no sync — your data never leaves your device.
+Built for people who want to map their life without handing their data to a cloud service. lifeGLANCE is a privacy-first progressive web app. Data is stored in a backend that you control.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-1.0.2-brightgreen.svg)](../../releases)
@@ -39,7 +39,7 @@ Use the hosted version at [lifeglance.app](https://lifeglance.app), or self-host
 - Full-text search across titles and notes
 - Stats panel and summary modal
 - "On this day" — milestones from this date in past years
-- Minimap scrubbar for fast navigation
+- Minimap scrubber for fast navigation
 
 **Import / export**
 - Import events from `.ics` calendar files
@@ -78,12 +78,11 @@ Use the hosted version at [lifeglance.app](https://lifeglance.app), or self-host
 
 ## Storage
 
-All data is stored locally in your browser using IndexedDB. Nothing is sent to a server.
+All data is stored in a SQLite database on the server. Some data is stored in a local cache in `IndexedDB` and `localStorage`
 
 | Store | Contents |
 |---|---|
 | IndexedDB `milestones` | Milestone records (text fields, flags) |
-| IndexedDB `media` | Audio / video blobs, keyed by milestone ID |
 | `localStorage` | Settings and preferences only (a few KB) |
 
 Media blobs are fetched lazily — only when you open a milestone detail or click play — so startup time stays fast regardless of how many attachments you have.
@@ -96,7 +95,7 @@ Media blobs are fetched lazily — only when you open a milestone detail or clic
 
 ## Running locally
 
-Requires Node 20+.
+Requires Node 24+.
 
 ```bash
 npm install
@@ -123,7 +122,7 @@ docker build -t lifeglance .
 docker run -p 8080:80 lifeglance
 ```
 
-The image builds with Node 20 Alpine and serves the static output via nginx.
+The image builds with Node 24 Alpine and serves the static output via nginx.
 
 ---
 
@@ -131,9 +130,9 @@ The image builds with Node 20 Alpine and serves the static output via nginx.
 
 | | |
 |---|---|
-| Framework | React 18 + Vite |
+| Framework | React 19 + Vite |
 | PWA | vite-plugin-pwa (Workbox) |
-| Storage | IndexedDB (milestones + media), localStorage (settings) |
+| Storage | SQLite database, IndexedDB (milestones + media), localStorage (settings) |
 | Dates | date-fns |
 | Font | Courier Prime (Google Fonts, cached offline) |
 | Audio | Web Audio API — synthesised, no samples |
@@ -143,4 +142,4 @@ The image builds with Node 20 Alpine and serves the static output via nginx.
 
 ## Privacy
 
-lifeGLANCE has no backend, no analytics, no accounts, and no network requests beyond loading the app itself and fetching the Courier Prime font (cached after first load). Your timeline data is yours alone.
+lifeGLANCE has no analytics, no accounts, and does not contact anyone outside your deployment (except for the Google Font download). Your timeline data is yours alone.
