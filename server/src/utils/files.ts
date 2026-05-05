@@ -29,6 +29,48 @@ export function persistUpload(file: Express.Multer.File): StoredUpload {
     });
 }
 
+async function hashFile(absolutePath: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const hash = crypto.createHash("sha256");
+        const stream = fs.createReadStream(absolutePath);
+        stream.on("data", (chunk) => hash.update(chunk));
+        stream.on("end", () => resolve(hash.digest("hex")));
+        stream.on("error", reject);
+    });
+}
+
+export async function persistStagedUpload(file: Express.Multer.File): Promise<StoredUpload> {
+    if (!file.path) {
+        throw new Error("Staged upload file path is missing.");
+    }
+
+    const id: string = createId();
+    const sha256 = await hashFile(file.path);
+    const ext: string = extensionForName(file.originalname);
+    const relativeDir: string = path.join(sha256.slice(0, 2), sha256.slice(2, 4));
+    const relativePath: string = path.join(relativeDir, `${id}${ext}`);
+    const absoluteDir: string = path.join(config.mediaRoot, relativeDir);
+    const absolutePath: string = path.join(config.mediaRoot, relativePath);
+
+    fs.mkdirSync(absoluteDir, { recursive: true });
+
+    if (fs.existsSync(absolutePath)) {
+        fs.unlinkSync(file.path);
+    } else {
+        fs.renameSync(file.path, absolutePath);
+    }
+
+    return {
+        id,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        sizeBytes: file.size,
+        sha256,
+        storagePath: relativePath,
+        absolutePath,
+    };
+}
+
 export function persistBufferUpload(input: {
     buffer: Buffer;
     originalName: string;

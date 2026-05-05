@@ -211,11 +211,17 @@ This is configured in:
 
 nginx is configured with:
 
-- `client_max_body_size 100m`
+- `client_max_body_size 1g`
 
 This is required so media uploads can pass through the frontend proxy without being rejected too early.
 
 If you plan to support larger uploads, raise that value in [nginx.conf](/home/awudoin/projects/lifeGLANCE/nginx.conf:1).
+
+The backend also enforces a matching upload ceiling in the media route:
+
+- current multer file size limit: `1 GiB`
+
+Very large uploads are staged to disk in the backend container before being moved into the persistent media directory, rather than being buffered entirely in memory.
 
 ## Health Checks
 

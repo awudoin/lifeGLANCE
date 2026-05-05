@@ -197,8 +197,7 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
         data: FrontendMilestoneSave;
         existing: FrontendMilestone | undefined;
         fileSize: number;
-        remaining: number;
-    } | null>(null); // { data, existing, fileSize, remaining } | null
+    } | null>(null); // { data, existing, fileSize } | null
 
     const timelineRef = useRef<TimelineHandle | null>(null);
     const zoomWrapRef = useRef<HTMLDivElement | null>(null);
@@ -1248,10 +1247,13 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
             const err = e as Error & { code?: number };
             console.error("Save failed:", err);
             const isQuota = err?.name === "QuotaExceededError" || err?.code === 22;
+            const isTooLarge = err?.message?.includes("413");
             showToast(
-                isQuota
-                    ? "Storage full — export a backup to free space, then try again."
-                    : "Failed to save milestone. Please try again.",
+                isTooLarge
+                    ? "This file is larger than the current server upload limit."
+                    : isQuota
+                      ? "Storage full — export a backup to free space, then try again."
+                      : "Failed to save milestone. Please try again.",
             );
         }
     }
@@ -1264,27 +1266,11 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
         const { mediaFile } = data;
 
         if (mediaFile) {
-            let remaining = 0;
-            if (navigator.storage?.estimate) {
-                try {
-                    const { quota, usage } = await navigator.storage.estimate();
-                    remaining = (quota ?? 0) - (usage ?? 0);
-                    if (remaining < mediaFile.size) {
-                        showToast(
-                            "Not enough storage space for this file. Free up space and try again.",
-                        );
-                        return;
-                    }
-                } catch {
-                    /* estimate unavailable, proceed */
-                }
-            }
             if (mediaFile.size > 50 * 1024 * 1024) {
                 setMediaConfirm({
                     data,
                     existing,
                     fileSize: mediaFile.size,
-                    remaining,
                 });
                 return;
             }
@@ -1882,14 +1868,8 @@ export default function TimelineView({ milestones, setMilestones }: TimelineView
                     <div className="media-confirm-modal">
                         <p className="media-confirm-title">large file</p>
                         <p className="media-confirm-body">
-                            This file is <strong>{fmtBytes(mediaConfirm.fileSize)}</strong>.
-                            {mediaConfirm.remaining != null && (
-                                <>
-                                    {" "}
-                                    You have <strong>{fmtBytes(mediaConfirm.remaining)}</strong> of
-                                    storage remaining.
-                                </>
-                            )}
+                            This file is <strong>{fmtBytes(mediaConfirm.fileSize)}</strong>. Large
+                            uploads can take a while depending on your deployment and network.
                         </p>
                         <div className="media-confirm-actions">
                             <button

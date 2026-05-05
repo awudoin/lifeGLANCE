@@ -1,10 +1,26 @@
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { type NextFunction, type Request, type Response, Router } from "express";
 import multer from "multer";
 import { createMediaRecord, deleteMediaRecord, findMediaRecord } from "../repos/mediaRepo.js";
-import { persistUpload, resolveMediaAbsolutePath } from "../utils/files.js";
+import { persistStagedUpload, resolveMediaAbsolutePath } from "../utils/files.js";
 
-const upload = multer({ storage: multer.memoryStorage() });
+const uploadTempDir = path.join(os.tmpdir(), "lifeglance-uploads");
+fs.mkdirSync(uploadTempDir, { recursive: true });
+
+const upload = multer({
+    storage: multer.diskStorage({
+        destination: (_request, _file, callback) => callback(null, uploadTempDir),
+        filename: (_request, file, callback) => {
+            const suffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+            callback(null, `${suffix}-${file.originalname}`);
+        },
+    }),
+    limits: {
+        fileSize: 1024 * 1024 * 1024,
+    },
+});
 
 export const mediaRouter: Router = Router();
 
@@ -31,7 +47,7 @@ mediaRouter.post(
                 return;
             }
 
-            const stored = persistUpload(file);
+            const stored = await persistStagedUpload(file);
             const record = await createMediaRecord({
                 id: stored.id,
                 milestoneId,
@@ -49,6 +65,18 @@ mediaRouter.post(
         }
     },
 );
+
+mediaRouter.use((error: unknown, _request: Request, response: Response, next: NextFunction) => {
+    if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
+        response.status(413).json({
+            error: "file_too_large",
+            message: "Uploaded media exceeds the server file size limit.",
+        });
+        return;
+    }
+
+    next(error);
+});
 
 mediaRouter.get("/media/:id", async (request: Request, response: Response, next: NextFunction) => {
     try {
